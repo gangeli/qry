@@ -14,7 +14,11 @@ class Argument(val key:Option[ArgumentKey], val value:Option[ArgumentValue]) {
         ):ExpandedTask = {
       value.mode match {
         case 'none =>
-          task.appendToBase(value.head)
+          if (key.isDefined) {
+            task.appendToBase(value.head).appendToBase(key.get)
+          } else {
+            task.appendToBase(value.head)
+          }
         case 'cross_product =>
           task.appendToCrossProduct(key, value)
         case 'independent_or =>
@@ -89,17 +93,30 @@ case class ArgumentKey(key:String) {
 *   An abstract representation of an argument value,
 *   potentially taking on many concrete values.
 */
-case class ArgumentValue(head:String, tailRev:List[String], mode:Symbol) {
+case class ArgumentValue(headIndex:Option[Int], argsRev:List[String], mode:Symbol) {
+
+  /** The default argument for this value.
+  *   @return The default argument of this ArgumentValue
+  */
+  def head:String = {
+    if (headIndex.isDefined && (headIndex.get < 0 || headIndex.get > argsRev.size)) {
+      err("Index out of bounds: " + headIndex.get + " for options: " + this)
+    }
+    argsRev.reverse(headIndex.getOrElse(0))
+  }
   
   /** All but the default argument for this argument value
   *   @return All but the default argument, as an in-order list
   */
-  def tail:List[String] = tailRev.reverse
+  def tail:List[String] = all diff List(head)
   
   /** All the possible instances of this argument value
   *   @return All possble arguments
   */
-  def all:List[String] = head :: tailRev.reverse
+  def all:List[String] = headIndex match {
+    case None => argsRev.reverse
+    case Some(headIndex) => List(head)
+  }
 
   /** Piecewise (independent) branchout of the arguments.
   *   This branches out in a dimension of the input space, but with all other
@@ -112,8 +129,14 @@ case class ArgumentValue(head:String, tailRev:List[String], mode:Symbol) {
     if (mode != 'independent_or && mode != 'none) {
       err("Mixing '|' and '&' in argument list")
     }
-    ArgumentValue(head, alternative :: tailRev, 'independent_or);
+    ArgumentValue(headIndex, alternative :: argsRev, 'independent_or);
   }
+  /** @see above */
+  def |(alternative:AnyVal):ArgumentValue = this.|(alternative.toString)
+  /** @see above */
+  def |(alternative:Symbol):ArgumentValue = this.|(alternative.name)
+  /** Allow trailing or symbol */
+  def |():ArgumentValue = this
   
   /** Cross product branchout of the arguments.
   *   This branches out in a dimension of the input space, taking all
@@ -125,8 +148,14 @@ case class ArgumentValue(head:String, tailRev:List[String], mode:Symbol) {
     if (mode != 'cross_product && mode != 'none) {
       err("Mixing '|' and '&' in argument list")
     }
-    ArgumentValue(head, alternative :: tailRev, 'cross_product);
+    ArgumentValue(headIndex, alternative :: argsRev, 'cross_product);
   }
+  /** @see above */
+  def &(alternative:AnyVal):ArgumentValue = this.&(alternative.toString)
+  /** @see above */
+  def &(alternative:Symbol):ArgumentValue = this.&(alternative.name)
+  /** Allow trailing and symbol */
+  def &():ArgumentValue = this
 
   /** Choses a particular value from the set of possible arguments
   *   defined in this ArgumentValue.
@@ -134,26 +163,12 @@ case class ArgumentValue(head:String, tailRev:List[String], mode:Symbol) {
   *   @return The ArgumentValue with only that index selected
   */
   def ?:(headIndex:Int):ArgumentValue = {
-    if (headIndex < 0 || headIndex > tailRev.size) {
-      err("Index out of bounds: " + headIndex + " for options: " + this)
-    }
-    return ArgumentValue(all(headIndex), Nil, 'none)
-  }
-
-  /** Choses a new default value from the set of possible arguments
-  *   defined in this ArgumentValue.
-  *   @param index of the argument to choose as the new default
-  *   @return The ArgumentValue with all alternatives intact, but a new default
-  */
-  def ??:(headIndex:Int):ArgumentValue = {
-    if (headIndex < 0 || headIndex > tailRev.size) {
-      err("Index out of bounds: " + headIndex + " for options: " + this)
-    }
-    val newHead = all(headIndex)
-    return ArgumentValue(newHead,
-                         tailRev diff List(newHead) ::: List(head),
-                         mode)
+    return ArgumentValue(Some(headIndex), argsRev, 'none)
   }
 
   override def toString:String = all.mkString(" ")
+}
+
+object ArgumentValue {
+  def apply(argument:String):ArgumentValue = ArgumentValue(None, List(argument), 'none)
 }

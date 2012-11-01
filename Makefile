@@ -8,26 +8,28 @@ DOC=doc
 TEST_BUILD=test/bin
 DIST=dist
 # (compiler)
-SCALAC=scalac
-SCALADOC=scaladoc
+SCALAC=/home/gabor/programs/scala/bin/scalac
+SCALADOC=/home/gabor/programs/scala/bin/scaladoc
 
-default: Makefile ${DIST}/${NAME}.jar
+default: ${DIST}/${NAME}.jar
 
 # -- BUILD --
-${DIST}/${NAME}.jar: $(wildcard ${SRC}/qry/*.scala)
+${DIST}/${NAME}.jar: $(wildcard ${SRC}/qry/*.scala) Makefile
 	@echo "--------------------------------------------------------------------------------"
 	@echo "                          BUILDING Qry.jar"
 	@echo "--------------------------------------------------------------------------------"
 	mkdir -p ${BUILD}
-	mkdir -p ${DOC}
 	mkdir -p ${DIST}
 	#(compile)
 	${SCALAC} -deprecation -d ${BUILD} `find ${SRC} -name "*.scala"`
-	#(compile)
-	${SCALADOC} -deprecation -d ${DOC} `find ${SRC} -name "*.scala"`
 	#(jar)
 	jar cf ${DIST}/${NAME}.jar -C $(BUILD) .
 	jar uf ${DIST}/${NAME}.jar -C $(SRC) .
+
+doc:
+	mkdir -p ${DOC}
+	#(compile)
+	${SCALADOC} -deprecation -d ${DOC} `find ${SRC} -name "*.scala"`
 
 clean:
 	rm -f ${DIST}/${NAME}.jar

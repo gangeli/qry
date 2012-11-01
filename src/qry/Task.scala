@@ -1,5 +1,8 @@
 import Qry._
 
+import scala.sys.process._
+import java.io.File
+
 /**
 *   An expanded representation of a task specification.
 */
@@ -88,18 +91,39 @@ case class ExpandedTask(baseArgs:List[String],
 /**
 *   An task specification, in general yielding many runs.
 */
-class Task(program:String, args_rev:List[Argument]) {
+case class Task(program:String, argsRev:List[Argument],
+                postProcessRev:List[ProcessBuilder=>List[ProcessBuilder]],
+                stdoutFile:Option[(File,Boolean)]) {
+
+  /** Expand the processes to be created by this task */
+  private def processes:List[ProcessBuilder] = {
+    // Get the jobs created by exploding this task's arguments
+    val procs:List[ProcessBuilder]
+      = argsRev.foldLeft(ExpandedTask(Nil, Nil, Nil)){
+        case (task:ExpandedTask, arg:Argument) => arg(task);
+      }.appendToBase(program).instances.map{ x => Process(x) }
+    // Get the procs created by postprocessing this task
+    // For example, this includes the result of pipes.
+    postProcessRev.foldRight(procs) {
+          case (fn:(ProcessBuilder=>List[ProcessBuilder]), procs:List[ProcessBuilder]) =>
+      procs.map{ fn(_) }.flatten
+    }
+  }
+
   /** 
-  *   Submit a task specification to the system for running.
+  *   Create a specification of jobs to be run by the system.
   *   The jobs are not run yet as of this return.
   *   @return the jobs to be run
   */
   def jobs:List[Job] = {
-    val jobs:List[List[String]]
-      = args_rev.foldLeft(ExpandedTask(Nil, Nil, Nil)){
-        case (task:ExpandedTask, arg:Argument) => arg(task);
-      }.appendToBase(program).instances
-    jobs.map( Job(_, false, None) )
+    // Pipe procs to to a file, if applicable.
+    // Then, convert them to Job objects
+    {stdoutFile match {
+      case Some((file, append)) =>
+        if (append) processes.map( _ #>> file )
+        else processes.map( _ #> file )
+      case None => processes
+    }}.map( Job(_, false, None) )
   }
 
   /** 
@@ -108,7 +132,7 @@ class Task(program:String, args_rev:List[Argument]) {
   *   @return This task, with the argument appended
   */
   private def addArgument(arg:Argument):Task
-    = new Task(program, arg :: args_rev)
+    = new Task(program, arg :: argsRev, postProcessRev, stdoutFile)
 
   /** @see addArgument */
   def -(arg:Argument):Task = addArgument(arg)
@@ -121,7 +145,7 @@ class Task(program:String, args_rev:List[Argument]) {
   def arg(arg:ArgumentValue):Task = addArgument(Argument(arg))
   
   /** @see arg */
-  def $(arg:ArgumentValue):Task = addArgument(Argument(arg))
+  def ->(arg:ArgumentValue):Task = addArgument(Argument(arg))
 
   /** 
   *   Register a flag without a value
@@ -143,4 +167,38 @@ class Task(program:String, args_rev:List[Argument]) {
 
   /** @see flag */
   def -(arg:ArgumentKey):Task = flag(arg)
+
+  /** Pipe the output of this task to a file. This is executed after
+  *   all standard pipes ('|') have been executed.
+  *   @param file The file to output to
+  *   @return A task which will eventually output stdout to the file
+  */
+  def >(file:File):Task = {
+    Task(program, argsRev, postProcessRev, Some((file, false)))
+  }
+
+  /** Append the output of this task to a file. This is executed after
+  *   all standard pipes ('|') have been executed.
+  *   @param file The file to append to
+  *   @return A task which will eventually output stdout to the file
+  */
+  def >>(file:File):Task = {
+    Task(program, argsRev, postProcessRev, Some((file, true)))
+  }
+
+  /** Pipe the output of this task into another task.
+  *   If each task defines multiple jobs, this will take the cross-product
+  *   of the jobs. That is, it will start every instance of the second job
+  *   given every output of the first job.
+  *   @param file The task the output of this task is being appended to
+  *   @return The piped task
+  */
+  def |(task:Task):Task = {
+    if (stdoutFile.isDefined) {
+      err("Cannot pipe ('|') after piping to a file ('>')")
+    }
+    Task(program, argsRev,
+         {(p:ProcessBuilder) => task.processes.map{ p #| _ }} :: postProcessRev,
+         task.stdoutFile)
+  }
 }

@@ -1,26 +1,12 @@
-//(scala)
 import scala.collection.JavaConversions._
 import scala.sys.process._
-//(java)
 import java.util.concurrent._
+import java.io.File
 
 /**
 *   The main object for interacting with Qry.
 */
 object Qry {
-  //
-  // Helpers
-  //
-  /** Register an error and exit.
-  *   @param msg The error message
-  */
-  def err(msg:Any):Unit = {
-    println(msg)
-    System.exit(1)
-  }
-  /** A lock to help with pretty printing */
-  val beginLock = new scala.concurrent.Lock
-
   //
   // Configuraiton
   //
@@ -32,38 +18,74 @@ object Qry {
   def dash():String = dash_value
   
   /** The thread pool to use for starting tasks. */
-  var executor = new ScheduledThreadPoolExecutor(1);
+  var executor = Executors.newFixedThreadPool(1)
   /** The size of the thread pool to use for starting tasks. */
   var threadPoolSize = 1
   /** Set the size of the thread (process) pool. */
   def procs(threadCount:Int):Unit = {
-    executor = new ScheduledThreadPoolExecutor(threadCount);
+    executor = Executors.newFixedThreadPool(threadCount)
     threadPoolSize = threadCount
   }
   /** Get the size of the thread (process) pool. */
   def procs:Int = threadPoolSize
+
+  //
+  // "Private" Configuration
+  //
+  /** The root execution directory, where runs would be logged */
+  var execRoot:Option[String] = None
   
   //
-  // Implicits
-  // Here be dragons and magic.
+  // Using keyword
   //
-  /** Create a job directly from a string */
-  implicit def string2job(cmd:String):Job = new Job(Process(cmd), true, None)
-  /** Create a job directly from a list of program name + arguments */
-  implicit def list2job(cmd:List[String]):Job
-    = new Job(Process(cmd), true, None)
-  /** Create a task directly */
-  implicit def string2task(programName:String):Task = new Task(programName, Nil)
+  def input(spec:String, force:Boolean = true):Boolean = {
+    return false
+  }
+
+  def execdir(spec:String, force:Boolean = true):Boolean = {
+    if (!force && !spec.endsWith("/")) return false
+    // Create and error check root execdir directory
+    val root = new File(spec)
+    if (root.exists && !root.isDirectory) {
+      err("Argument to execdir is not a directory: '" + spec + "'")
+    }
+    if (!root.exists) {
+      if (!root.mkdirs) {
+        err("Could not create directory: '" + spec + "'")
+      }
+    }
+    if (!root.canRead) {
+      err("Cannot read directory: '" + spec + "'")
+    }
+    // Set variable
+    execRoot = Some(root.getAbsolutePath);
+    return true
+  }
   
-  /** Create an argument from a pair of (ArgumentKey, ArgumentValue) */
-  implicit def pair2argument(arg:(ArgumentKey,ArgumentValue)):Argument
-      = Argument(arg._1, arg._2)
-  /** Create an argument key from a string */
-  implicit def string2argument_key(arg:String):ArgumentKey = ArgumentKey(arg)
-  /** Create an argument value from a string */
-  implicit def string2argument_value(arg:String):ArgumentValue
-    = new ArgumentValue(arg, Nil, 'none)
-  
+  def redis(spec:String, force:Boolean = true):Boolean = {
+    return false
+  }
+
+  def remote(spec:String, force:Boolean = true):Boolean = {
+    return false
+  }
+
+  def using(spec:String):Unit = {
+    val success = redis(spec, false) ||
+                  remote(spec, false) ||
+                  input(spec, false) ||
+                  execdir(spec, false)
+    if (!success) {
+      var user = System.getenv("USER")
+      if (user == null) user = "[user]"
+      err("Could not parse argument to using: '" + spec + "'. Did you mean:" +
+          "\n\t? '" + spec + "'       (properties file: doesn't exist)" +
+          "\n\t? '" + spec + "/'      (execution directory)" +
+          "\n\t? '" + user + "@" + spec + "'  (remote machine)" +
+          "\n\t? 'redis:" + spec + "' (qry database)" +
+          "")
+    }
+  }
   
   //
   // Top Level Entry Points
@@ -75,10 +97,12 @@ object Qry {
     beginLock.acquire
     val jobs:List[Job] = task.jobs
     jobs.foreach{ _.queue }
-    executor.shutdown
     println("-- " + jobs.length + " job" + {if(jobs.length > 1) "s" else ""} +
       " submitted")
     beginLock.release
+    executor.shutdown
+    executor.awaitTermination(42, java.util.concurrent.TimeUnit.DAYS)
+    executor = Executors.newFixedThreadPool(threadPoolSize)
   }
   
   /** Analyze what Qry would do for a given task, printing out the results.
@@ -95,6 +119,47 @@ object Qry {
       println("--   " + procs + " processes at a time")
     if (dash != "-")
       println("--   '" + dash + "' as as the argument prefix")
-    executor.shutdown
   }
+  
+  //
+  // Internal Helpers
+  //
+  /** Register an error and exit.
+  *   @param msg The error message
+  */
+  def err(msg:Any):Unit = {
+    println(msg)
+    System.exit(1)
+  }
+  /** A lock to help with pretty printing */
+  val beginLock = new scala.concurrent.Lock
+  
+  //
+  // Implicits
+  // Here be dragons and magic.
+  //
+  /** Create a job directly from a string */
+  implicit def string2job(cmd:String):Job = new Job(Process(cmd), true, None)
+  /** Create a job directly from a list of program name + arguments */
+  implicit def list2job(cmd:List[String]):Job = new Job(Process(cmd), true, None)
+  /** Create a task directly */
+  implicit def string2task(programName:String):Task = new Task(programName, Nil, Nil, None)
+  
+  /** Create an argument from a pair of (ArgumentKey, ArgumentValue) */
+  implicit def pair2argument(arg:(ArgumentKey,ArgumentValue)):Argument = Argument(arg._1, arg._2)
+  /** Create an argument key from a string */
+  implicit def string2argument_key(arg:String):ArgumentKey = ArgumentKey(arg)
+  /** Create an argument value from a string */
+  implicit def string2argument_value(arg:String):ArgumentValue = ArgumentValue(arg)
+  /** Create an argument key from a symbol */
+  implicit def symbol2argument_key(arg:Symbol):ArgumentKey = ArgumentKey(arg.name)
+  /** Create an argument value from a symbol */
+  implicit def symbol2argument_value(arg:Symbol):ArgumentValue = ArgumentValue(arg.name)
+  /** Create an argument key from a Number */
+  implicit def anyval2argument_key(arg:AnyVal):ArgumentKey = ArgumentKey(arg.toString)
+  /** Create an argument value from a Number */
+  implicit def anyval2argument_value(arg:AnyVal):ArgumentValue = ArgumentValue(arg.toString)
+  
+  /** Create a File from a String filename */
+  implicit def string2file(filename:String):File = new File(filename)
 }
