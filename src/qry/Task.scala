@@ -10,20 +10,20 @@ case class ExpandedTask(baseArgs:List[String],
                         crossProductArgs:List[List[String]],
                         independentOrArgs:List[List[String]]) {
   /** Updates the cross product with a single new argument */
-  private def updateCross(key:Option[String], value:String
+  private def updateCross(key:Option[String], value:ConcreteArgumentValue
       ):List[List[String]] = {
     key match {
-      case Some(key) => crossProductArgs.map{ key :: value :: _ }
-      case None => crossProductArgs.map{ value :: _ }
+      case Some(key) => crossProductArgs.map{ key :: value.get ::: _ }
+      case None => crossProductArgs.map{ value.get ::: _ }
     }
   }
   
   /** Updates the piecewise product with a single new argument */
-  private def updateIndependent(key:Option[String], value:String
+  private def updateIndependent(key:Option[String], value:ConcreteArgumentValue
       ):List[List[String]] = {
     key match {
-      case Some(key) => independentOrArgs.map{ key :: value :: _ }
-      case None => independentOrArgs.map{ value :: _ }
+      case Some(key) => independentOrArgs.map{ key :: value.get ::: _ }
+      case None => independentOrArgs.map{ value.get ::: _ }
     }
   }
 
@@ -31,8 +31,8 @@ case class ExpandedTask(baseArgs:List[String],
   *   @param str The argument to be appended
   *   @return A new task, updated with this argument
   */
-  def appendToBase(str:String):ExpandedTask = {
-    val newBase = str :: baseArgs;
+  def appendToBase(str:ConcreteArgumentValue):ExpandedTask = {
+    val newBase = str.get ::: baseArgs;
     ExpandedTask(newBase, updateCross(None, str), updateIndependent(None, str))
   }
 
@@ -43,20 +43,22 @@ case class ExpandedTask(baseArgs:List[String],
   */
   def appendToCrossProduct(key:Option[String], value:ArgumentValue
       ):ExpandedTask = {
-    val newBase = key match {
-      case Some(key) => key :: value.head :: baseArgs;
-      case None => value.head :: baseArgs;
+    val headString:String = value.head.get.head
+    val headTail:List[String] = value.head.get.tail
+    val newBase:List[String] = key match {
+      case Some(key) => key :: headString :: headTail ::: baseArgs;
+      case None => headString :: headTail ::: baseArgs;
     }
-    var newCross = 
+    var newCross:List[List[String]] = 
       if(crossProductArgs.size == 0) List(baseArgs)
       else crossProductArgs
     newCross = {key match {
       case Some(key) => newCross.map{ (args:List[String]) =>
-                            value.all.map{ key :: _ :: args }}
+                            value.all.map{ key :: _.get ::: args }}
       case None => newCross.map{ (args:List[String]) =>
-                       value.all.map{ _ :: args }}
+                       value.all.map{ _.get ::: args }}
     }}.flatten
-    ExpandedTask(newBase, newCross, updateIndependent(key, value.head))
+    ExpandedTask(newBase, newCross, updateIndependent(key, headString))
   }
   
   /** Updates the piecewise (independent) 'or' arguments with a given key/value pair.
@@ -66,14 +68,16 @@ case class ExpandedTask(baseArgs:List[String],
   */
   def appendToIndependentOr(key:Option[String], value:ArgumentValue
       ):ExpandedTask = {
-    val newBase = key match {
-      case Some(key) => key :: value.head :: baseArgs;
-      case None => value.head :: baseArgs;
+    val headString:String = value.head.get.head
+    val headTail:List[String] = value.head.get.tail
+    val newBase:List[String] = key match {
+      case Some(key) => key :: headString :: headTail ::: baseArgs;
+      case None => headString :: headTail ::: baseArgs;
     }
-    val newIndependent = key match {
-      case Some(key) => value.tail.map{ key :: _ :: baseArgs } :::
+    val newIndependent:List[List[String]] = key match {
+      case Some(key) => value.tail.map{ key :: _.get ::: baseArgs } :::
                             updateIndependent(Some(key), value.head)
-      case None => value.tail.map{ _ :: baseArgs } :::
+      case None => value.tail.map{ _.get ::: baseArgs } :::
                        updateIndependent(key, value.head)
     }
     ExpandedTask(newBase, updateCross(key, value.head), newIndependent)
@@ -142,10 +146,25 @@ case class Task(program:String, argsRev:List[Argument],
   *   @param arg The argument's value
   *   @return This task, with the argument appended
   */
-  def arg(arg:ArgumentValue):Task = addArgument(Argument(arg))
+  def arg(argValue:ArgumentValue):Task = addArgument(Argument(argValue))
   
-  /** @see arg */
-  def ->(arg:ArgumentValue):Task = addArgument(Argument(arg))
+  /**
+  *  Adds a product (list/tuple/etc) of arguments to the task
+  *  @param arg The argument collection
+  *  @return Returns the task with all arguments added
+  */
+  def arg(argValues:Product):Task = {
+    (0 until argValues.productArity).foldLeft(this){ case (task:Task, i:Int) =>
+      task.addArgument(
+        Argument(guessArgumentValue(argValues.productElement(i))))
+    }
+  }
+  
+  /** @see addArgument */
+  def ->(argValue:ArgumentValue):Task = arg(argValue)
+  
+  /** @see addArgument */
+  def ->(argValues:Product):Task = arg(argValues)
 
   /** 
   *   Register a flag without a value
@@ -201,4 +220,19 @@ case class Task(program:String, argsRev:List[Argument],
          {(p:ProcessBuilder) => task.processes.map{ p #| _ }} :: postProcessRev,
          task.stdoutFile)
   }
+
+  /** Repeat this task n times, with values evaluated lazily
+  *   @param repeatCount The number of times to repeat the task
+  *   @return An iterator of tasks to run
+  */
+  def *(repeatCount:Int):Iterator[Task] = {
+    var index = 0;
+    def self:Task = Task( program, argsRev, postProcessRev, stdoutFile)
+    new Iterator[Task] {
+      override def hasNext:Boolean = index < repeatCount
+      override def next:Task = { index += 1; self }
+    }
+  }
+
+  def repeat(repeatCount:Int) = this * repeatCount
 }

@@ -4,7 +4,8 @@ import Qry._
 *   A fully specified argument to the system, potentially spawning many
 *   runs corresponding to different values the argument could take.
 */
-class Argument(val key:Option[ArgumentKey], val value:Option[ArgumentValue]) {
+class Argument(val key:Option[ArgumentKey],
+               val value:Option[ArgumentValue]) {
   /** Updates an ExpandedTask with the specification defined by this argument.
   *   @param task The task to update, in its current state
   *   @return A new task, updated with this argument
@@ -93,12 +94,14 @@ case class ArgumentKey(key:String) {
 *   An abstract representation of an argument value,
 *   potentially taking on many concrete values.
 */
-case class ArgumentValue(headIndex:Option[Int], argsRev:List[String], mode:Symbol) {
+case class ArgumentValue(headIndex:Option[Int],
+                         argsRev:List[ConcreteArgumentValue],
+                         mode:Symbol) {
 
   /** The default argument for this value.
   *   @return The default argument of this ArgumentValue
   */
-  def head:String = {
+  def head:ConcreteArgumentValue = {
     if (headIndex.isDefined && (headIndex.get < 0 || headIndex.get > argsRev.size)) {
       err("Index out of bounds: " + headIndex.get + " for options: " + this)
     }
@@ -108,12 +111,12 @@ case class ArgumentValue(headIndex:Option[Int], argsRev:List[String], mode:Symbo
   /** All but the default argument for this argument value
   *   @return All but the default argument, as an in-order list
   */
-  def tail:List[String] = all diff List(head)
+  def tail:List[ConcreteArgumentValue] = all diff List(head)
   
   /** All the possible instances of this argument value
   *   @return All possble arguments
   */
-  def all:List[String] = headIndex match {
+  def all:List[ConcreteArgumentValue] = headIndex match {
     case None => argsRev.reverse
     case Some(headIndex) => List(head)
   }
@@ -125,16 +128,20 @@ case class ArgumentValue(headIndex:Option[Int], argsRev:List[String], mode:Symbo
   *   @param alternative The argument to append
   *   @return The ArgumentValue with this value appended
   */
-  def |(alternative:String):ArgumentValue = {
+  def |(alternative:ConcreteArgumentValue):ArgumentValue = {
     if (mode != 'independent_or && mode != 'none) {
       err("Mixing '|' and '&' in argument list")
     }
     ArgumentValue(headIndex, alternative :: argsRev, 'independent_or);
   }
   /** @see above */
-  def |(alternative:AnyVal):ArgumentValue = this.|(alternative.toString)
+  def |(alternative:AnyVal):ArgumentValue = alternative match {
+    case (fn:(()=>String)) => this.|(new ConcreteLazyValue(fn))
+    case _ => this.|(new ConcreteStringValue(alternative.toString))
+  }
   /** @see above */
-  def |(alternative:Symbol):ArgumentValue = this.|(alternative.name)
+  def |(alternative:Symbol):ArgumentValue
+    = this.|(new ConcreteStringValue(alternative.name))
   /** Allow trailing or symbol */
   def |():ArgumentValue = this
   
@@ -144,16 +151,20 @@ case class ArgumentValue(headIndex:Option[Int], argsRev:List[String], mode:Symbo
   *   @param alternative The argument to append
   *   @return The ArgumentValue with this value appended
   */
-  def &(alternative:String):ArgumentValue = {
+  def &(alternative:ConcreteArgumentValue):ArgumentValue = {
     if (mode != 'cross_product && mode != 'none) {
       err("Mixing '|' and '&' in argument list")
     }
     ArgumentValue(headIndex, alternative :: argsRev, 'cross_product);
   }
   /** @see above */
-  def &(alternative:AnyVal):ArgumentValue = this.&(alternative.toString)
+  def &(alternative:AnyVal):ArgumentValue = alternative match {
+    case (fn:(()=>String)) => this.&(new ConcreteLazyValue(fn))
+    case _ => this.&(new ConcreteStringValue(alternative.toString))
+  }
   /** @see above */
-  def &(alternative:Symbol):ArgumentValue = this.&(alternative.name)
+  def &(alternative:Symbol):ArgumentValue
+    = this.&(new ConcreteStringValue(alternative.name))
   /** Allow trailing and symbol */
   def &():ArgumentValue = this
 
@@ -169,6 +180,28 @@ case class ArgumentValue(headIndex:Option[Int], argsRev:List[String], mode:Symbo
   override def toString:String = all.mkString(" ")
 }
 
+trait ConcreteArgumentValue {
+  def get:List[String]
+}
+
+case class ConcreteStringValue(value:String) extends ConcreteArgumentValue {
+  override def get:List[String] = List(value)
+}
+
+case class ConcreteLazyValue(value:() => Any) extends ConcreteArgumentValue {
+  override def get:List[String] = value() match {
+    case (p:Product) =>
+      (0 until p.productArity).foldLeft(List[String]()){
+          case (lst:List[String], i:Int) => p.productElement(i).toString :: lst
+      }.reverse
+    case _ => List(value().toString)
+  }
+}
+
 object ArgumentValue {
-  def apply(argument:String):ArgumentValue = ArgumentValue(None, List(argument), 'none)
+  def apply(argument:String):ArgumentValue
+    = ArgumentValue(None, List(ConcreteStringValue(argument)), 'none)
+  
+  def apply(argument:(()=>Any)):ArgumentValue
+    = ArgumentValue(None, List(ConcreteLazyValue(argument)), 'none)
 }

@@ -79,7 +79,7 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean, var status:Option[Int]
   *   it will submit an appropriate job. Else, it will run the job outright.
   *   @param force Force running this task, even if the isQueued bit is set.
   */
-  def queue(force:Boolean):Unit = {
+  def queue(force:Boolean, whenDone:(()=>Unit)):Unit = {
     if (force || !isQueued) {
       executor.submit( new Runnable {
         override def run:Unit = {
@@ -103,6 +103,7 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean, var status:Option[Int]
               write(runDir + "/_qry.stats", b.toString)
             case None => // do nothing
           }
+          whenDone()
         }
       })
     }
@@ -111,10 +112,10 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean, var status:Option[Int]
   /**
   *   Queue a task to be run; @see Queue(force)
   */
-  def queue:Unit = queue(false)
+  def queue:Unit = queue(false, ()=>{})
 
   override def toString:String = proc.toString
 
   // Constructor
-  if (isQueued) queue(true)  // Optionally start running right away
+  if (isQueued) queue(true, ()=>{})  // Optionally start running right away
 }

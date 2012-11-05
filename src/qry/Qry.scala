@@ -28,6 +28,17 @@ object Qry {
   }
   /** Get the size of the thread (process) pool. */
   def procs:Int = threadPoolSize
+  /** Run as many jobs as cores on the machine.
+  *   @see procs
+  *   @return A dummy object capable of submitting jobs
+  */
+  def parallel:{def submit(t:Task); def submit(t:Iterator[Task])} = {
+    procs(Runtime.getRuntime().availableProcessors())
+    new {
+      def submit(t:Task):Unit = Qry.submit(t)
+      def submit(t:Iterator[Task]):Unit = Qry.submit(t)
+    }
+  }
 
   //
   // "Private" Configuration
@@ -93,15 +104,44 @@ object Qry {
   /** Submit a task for running. This is the usual entry point.
   *   @param task The task to run
   */
-  def submit(task:Task):Unit = {
+  def submit(task:Task,
+             whenDone:()=>Unit = { () =>
+               executor.shutdown
+               executor.awaitTermination(42000,
+                                         java.util.concurrent.TimeUnit.DAYS)
+               executor = Executors.newFixedThreadPool(threadPoolSize)
+             }):Unit = {
     beginLock.acquire
     val jobs:List[Job] = task.jobs
-    jobs.foreach{ _.queue }
+    jobs.foreach{ _.queue(false, whenDone) }
     println("-- " + jobs.length + " job" + {if(jobs.length > 1) "s" else ""} +
       " submitted")
     beginLock.release
+  }
+  
+  /** Submit a task a number of times for running.
+  *   @param task The task to run
+  */
+  def submit(tasks:Iterator[Task]):Unit = {
+    // -- Setup
+    import java.util.concurrent.atomic.AtomicInteger
+    var activeTasks = new AtomicInteger(0)
+    tasks.zipWithIndex.foreach{ case (task:Task, i:Int) =>
+      while (activeTasks.get > threadPoolSize) {
+        Thread.sleep(1000);
+      }
+      new Thread {
+        override def run:Unit = {
+          // -- Submit particular job
+          activeTasks.addAndGet(1)
+          println("-- Repeat iteration " + i)
+          submit(task, () => activeTasks.addAndGet(-1))
+        }
+      }.run
+    }
+    // -- Await termination
     executor.shutdown
-    executor.awaitTermination(42, java.util.concurrent.TimeUnit.DAYS)
+    executor.awaitTermination(42000, java.util.concurrent.TimeUnit.DAYS)
     executor = Executors.newFixedThreadPool(threadPoolSize)
   }
   
@@ -133,6 +173,13 @@ object Qry {
   }
   /** A lock to help with pretty printing */
   val beginLock = new scala.concurrent.Lock
+
+  def guessArgumentValue(arg:Any):ArgumentValue = arg match {
+    case (str:String) => ArgumentValue(str)
+    case (sym:Symbol) => ArgumentValue(sym.name)
+    case (fn:(()=>Any)) => ArgumentValue(fn)
+    case _ => ArgumentValue(arg.toString)
+  }
   
   //
   // Implicits
@@ -155,10 +202,19 @@ object Qry {
   implicit def symbol2argument_key(arg:Symbol):ArgumentKey = ArgumentKey(arg.name)
   /** Create an argument value from a symbol */
   implicit def symbol2argument_value(arg:Symbol):ArgumentValue = ArgumentValue(arg.name)
+  /** Create an argument value from a Function */
+  implicit def fn2argument_value(arg:(()=>Any)):ArgumentValue = ArgumentValue(arg)
   /** Create an argument key from a Number */
   implicit def anyval2argument_key(arg:AnyVal):ArgumentKey = ArgumentKey(arg.toString)
   /** Create an argument value from a Number */
   implicit def anyval2argument_value(arg:AnyVal):ArgumentValue = ArgumentValue(arg.toString)
+
+  /** Create a concrete argument value from a String */
+  implicit def string2concrete_argument_value(arg:String):ConcreteArgumentValue
+    = new ConcreteStringValue(arg)
+  /** Create a concrete argument value from a Function */
+  implicit def fn2concrete_argument_value(arg:(()=>String)):ConcreteArgumentValue
+    = new ConcreteLazyValue(arg)
   
   /** Create a File from a String filename */
   implicit def string2file(filename:String):File = new File(filename)
