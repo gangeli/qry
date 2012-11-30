@@ -149,8 +149,12 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean, var status:Option[Int]
               b.append("}")
               write(runDir + "/_qry.json", b.toString)
               // (command)
-              new ObjectOutputStream(new FileOutputStream(runDir + "/_cmd.ser"))
-                .writeObject(proc)
+              write(runDir + "/_cmd.txt", proc.toString)
+              try {
+                new ObjectOutputStream(
+                  new FileOutputStream(runDir + "/_cmd.ser"))
+                  .writeObject(proc)
+              } catch { case (e:RuntimeException) => () }
             case None => // do nothing
           }
           // Write results
