@@ -1,8 +1,10 @@
 import Qry._
 
 import scala.sys.process._
+import scala.collection.mutable.HashMap
 import java.io._
 import java.util.Date
+import java.util.concurrent.ThreadPoolExecutor
 
 /**
 *   A concrete job to be run.
@@ -48,6 +50,8 @@ object Job {
     if(min > 0) b.append(" minutes")
     else b.append(" seconds")
   }
+
+  def json(o:Any):String = "\"" + o.toString.replaceAll("\"", "\\\"") + "\""
 }
 
 case class Job(proc:ProcessBuilder, var isQueued:Boolean, var status:Option[Int]) {
@@ -81,31 +85,74 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean, var status:Option[Int]
   */
   def queue(force:Boolean, whenDone:(()=>Unit)):Unit = {
     if (force || !isQueued) {
-      executor.submit( new Runnable {
+      // -- Get Code
+      val code = new Runnable {
         override def run:Unit = {
           // Collect helpful info
           val start:Long = System.currentTimeMillis
+          var results = HashMap[String, String]()
           // Run the program
-          status = Some(proc.!)  // <-- RUN
-          // Write helpful info
+          status = Some(proc !< ProcessLogger(
+            {(out:String) => 
+              import ResultRegex._
+              out match {
+                case ExplicitResult(key, value) => results(key.trim) = value.trim
+                case ImplicitResultNumeric(key, value) => results(key.trim) = value.trim
+                case _ => 
+              }
+              println(out)
+            },
+            { (err:String) => System.err.println(err) }
+          ))
+          // Write info
           ensureRunDir match {
             case Some(runDir) =>
               val b:StringBuilder = new StringBuilder
-              b.append("Qry Run Statistics\n")
-              b.append("------------------\n")
+              b.append("{\n")
+              // (time)
+              b.append("  \"begin_time\":   ")
+              b.append(json(new Date(start).toString)).append(",\n")
+              b.append("  \"end_time\":     ")
+              b.append(json(new Date(System.currentTimeMillis).toString)).append(",\n")
+              b.append("  \"elapsed_time\": \"")
+              formatTimeDifference(System.currentTimeMillis - start, b).append("\",\n")
               b.append("\n")
-              b.append("begin time:   ")
-              b.append(new Date(start).toString).append("\n")
-              b.append("end time:     ")
-              b.append(new Date(System.currentTimeMillis).toString).append("\n")
-              b.append("elapsed time: ")
-              formatTimeDifference(System.currentTimeMillis - start, b).append("\n")
-              write(runDir + "/_qry.stats", b.toString)
+              // (run info)
+              b.append("  \"host\":         ")
+              b.append(json(java.net.InetAddress.getLocalHost().getHostName())).append(",\n")
+              b.append("  \"working_dir\":  ")
+              b.append(json(System.getProperty("user.dir"))).append(",\n")
+              b.append("  \"run_dir\":      ")
+              b.append(json(runDir)).append(",\n")
+              // (git revision info)
+              var revisionSHA:Option[String] = None
+              if ("""git rev-parse --verify HEAD""" ! ProcessLogger(
+                      out => revisionSHA = Some(out),
+                      err => ()
+                    ) == 0) {
+                b.append("  \"git_rev\":      ")
+                b.append(json(revisionSHA.get)).append(",\n")
+              }
+              b.append("\n")
+              // (results)
+              results.foreach{ case (key:String, value:String) =>
+                b.append("  ").append(json(key)).append(": ")
+                 .append(json(value)).append(",\n")
+              }
+              b.append("}")
+              write(runDir + "/_qry.json", b.toString)
+              // (command)
+              new ObjectOutputStream(new FileOutputStream(runDir + "/_cmd.ser"))
+                .writeObject(proc)
             case None => // do nothing
           }
+          // Write results
+          // Signal completion
           whenDone()
         }
-      })
+      }
+      // -- Submit
+      executor.submit(code)
     }
   }
   
@@ -118,4 +165,11 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean, var status:Option[Int]
 
   // Constructor
   if (isQueued) queue(true, ()=>{})  // Optionally start running right away
+}
+
+object ResultRegex {
+  val ExplicitResult
+   = """^.*result[\s\]]*[:\-\s]\s*(.+)\s*[=:\-]>?\s*([^>].+)\s*(?iu)$""".r
+  val ImplicitResultNumeric
+   = """^\s*(.+)\s*[=:\-]>?\s*([0-9\.\-e\%\(\)\$]+)\s*(?iu)$""".r
 }

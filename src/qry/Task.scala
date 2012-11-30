@@ -58,7 +58,8 @@ case class ExpandedTask(baseArgs:List[String],
       case None => newCross.map{ (args:List[String]) =>
                        value.all.map{ _.get ::: args }}
     }}.flatten
-    ExpandedTask(newBase, newCross, updateIndependent(key, headString))
+    ExpandedTask(newBase, newCross, updateIndependent(key,
+                                      ConcreteStringValue(headString)))
   }
   
   /** Updates the piecewise (independent) 'or' arguments with a given key/value pair.
@@ -99,13 +100,19 @@ case class Task(program:String, argsRev:List[Argument],
                 postProcessRev:List[ProcessBuilder=>List[ProcessBuilder]],
                 stdoutFile:Option[(File,Boolean)]) {
 
+  override def toString:String = {
+    val joined = processes(0).toString.replaceAll(", ", " ")
+    joined.substring(1, joined.length - 1)
+  }
+
   /** Expand the processes to be created by this task */
   private def processes:List[ProcessBuilder] = {
     // Get the jobs created by exploding this task's arguments
     val procs:List[ProcessBuilder]
       = argsRev.foldLeft(ExpandedTask(Nil, Nil, Nil)){
         case (task:ExpandedTask, arg:Argument) => arg(task);
-      }.appendToBase(program).instances.map{ x => Process(x) }
+      }.appendToBase(ConcreteStringValue(program))
+          .instances.map{ x => Process(x) }
     // Get the procs created by postprocessing this task
     // For example, this includes the result of pipes.
     postProcessRev.foldRight(procs) {

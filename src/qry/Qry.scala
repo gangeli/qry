@@ -22,23 +22,20 @@ object Qry {
   /** The size of the thread pool to use for starting tasks. */
   var threadPoolSize = 1
   /** Set the size of the thread (process) pool. */
-  def procs(threadCount:Int):Unit = {
+  def parallel(threadCount:Int
+      ):{def submit(t:Task); def submit(t:Iterator[Task])} = {
     executor = Executors.newFixedThreadPool(threadCount)
     threadPoolSize = threadCount
-  }
-  /** Get the size of the thread (process) pool. */
-  def procs:Int = threadPoolSize
-  /** Run as many jobs as cores on the machine.
-  *   @see procs
-  *   @return A dummy object capable of submitting jobs
-  */
-  def parallel:{def submit(t:Task); def submit(t:Iterator[Task])} = {
-    procs(Runtime.getRuntime().availableProcessors())
     new {
       def submit(t:Task):Unit = Qry.submit(t)
       def submit(t:Iterator[Task]):Unit = Qry.submit(t)
     }
   }
+  /** @see parallel */
+  def parallel:{def submit(t:Task); def submit(t:Iterator[Task])}
+    = parallel(Runtime.getRuntime.availableProcessors)
+  /** Get the size of the thread (process) pool. */
+  def procs:Int = threadPoolSize
 
   //
   // "Private" Configuration
@@ -105,18 +102,19 @@ object Qry {
   *   @param task The task to run
   */
   def submit(task:Task,
-             whenDone:()=>Unit = { () =>
-               executor.shutdown
-               executor.awaitTermination(42000,
-                                         java.util.concurrent.TimeUnit.DAYS)
-               executor = Executors.newFixedThreadPool(threadPoolSize)
-             }):Unit = {
+             whenDone:()=>Unit = { () => },
+             shutdown:Boolean = true):Unit = {
     beginLock.acquire
     val jobs:List[Job] = task.jobs
     jobs.foreach{ _.queue(false, whenDone) }
     println("-- " + jobs.length + " job" + {if(jobs.length > 1) "s" else ""} +
       " submitted")
     beginLock.release
+    if (shutdown) {
+      executor.shutdown
+      executor.awaitTermination(42000, java.util.concurrent.TimeUnit.DAYS)
+      executor = Executors.newFixedThreadPool(threadPoolSize)
+    }
   }
   
   /** Submit a task a number of times for running.
@@ -135,7 +133,7 @@ object Qry {
           // -- Submit particular job
           activeTasks.addAndGet(1)
           println("-- Repeat iteration " + i)
-          submit(task, () => activeTasks.addAndGet(-1))
+          submit(task, () => activeTasks.addAndGet(-1), false)
         }
       }.run
     }
@@ -208,13 +206,6 @@ object Qry {
   implicit def anyval2argument_key(arg:AnyVal):ArgumentKey = ArgumentKey(arg.toString)
   /** Create an argument value from a Number */
   implicit def anyval2argument_value(arg:AnyVal):ArgumentValue = ArgumentValue(arg.toString)
-
-  /** Create a concrete argument value from a String */
-  implicit def string2concrete_argument_value(arg:String):ConcreteArgumentValue
-    = new ConcreteStringValue(arg)
-  /** Create a concrete argument value from a Function */
-  implicit def fn2concrete_argument_value(arg:(()=>String)):ConcreteArgumentValue
-    = new ConcreteLazyValue(arg)
   
   /** Create a File from a String filename */
   implicit def string2file(filename:String):File = new File(filename)

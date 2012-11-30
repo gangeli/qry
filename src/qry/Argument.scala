@@ -16,7 +16,8 @@ class Argument(val key:Option[ArgumentKey],
       value.mode match {
         case 'none =>
           if (key.isDefined) {
-            task.appendToBase(value.head).appendToBase(key.get)
+            task.appendToBase(value.head).appendToBase(
+              ConcreteStringValue(key.get))
           } else {
             task.appendToBase(value.head)
           }
@@ -29,7 +30,8 @@ class Argument(val key:Option[ArgumentKey],
     }
     (key, value) match {
       case (None, None) => throw new IllegalArgumentException("Internal error")
-      case (Some(key), None) => task.appendToBase(dash() + key)
+      case (Some(key), None) =>
+        task.appendToBase(ConcreteStringValue(dash() + key))
       case (None, Some(value)) => handleValue(task, None, value)
       case (Some(key), Some(value)) => handleValue(task, Some(dash() + key),
                                                    value)
@@ -135,7 +137,7 @@ case class ArgumentValue(headIndex:Option[Int],
     ArgumentValue(headIndex, alternative :: argsRev, 'independent_or);
   }
   /** @see above */
-  def |(alternative:AnyVal):ArgumentValue = alternative match {
+  def |(alternative:Any):ArgumentValue = alternative match {
     case (fn:(()=>String)) => this.|(new ConcreteLazyValue(fn))
     case _ => this.|(new ConcreteStringValue(alternative.toString))
   }
@@ -158,7 +160,7 @@ case class ArgumentValue(headIndex:Option[Int],
     ArgumentValue(headIndex, alternative :: argsRev, 'cross_product);
   }
   /** @see above */
-  def &(alternative:AnyVal):ArgumentValue = alternative match {
+  def &(alternative:Any):ArgumentValue = alternative match {
     case (fn:(()=>String)) => this.&(new ConcreteLazyValue(fn))
     case _ => this.&(new ConcreteStringValue(alternative.toString))
   }
