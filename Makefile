@@ -8,8 +8,8 @@ DOC=doc
 TEST_BUILD=test/bin
 DIST=dist
 # (compiler)
-SCALAC=/home/gabor/programs/scala/bin/scalac
-SCALADOC=/home/gabor/programs/scala/bin/scaladoc
+SCALAC=scalac
+SCALADOC=scaladoc
 
 default: ${DIST}/${NAME}.jar
 
