@@ -6,7 +6,8 @@ import Qry._
 */
 class Argument(val key:Option[ArgumentKey],
                val value:Option[ArgumentValue]) {
-  /** Updates an ExpandedTask with the specification defined by this argument.
+  /** 
+  *   Updates an ExpandedTask with the specification defined by this argument.
   *   @param task The task to update, in its current state
   *   @return A new task, updated with this argument
   */
@@ -138,12 +139,13 @@ case class ArgumentValue(headIndex:Option[Int],
   }
   /** @see above */
   def |(alternative:Any):ArgumentValue = alternative match {
+    case (v:ArgumentValue) =>
+      if (v.argsRev.size != 1) err("Adding compound argument value")
+      this.|(v.argsRev.head)
+    case (s:Symbol) => this.|(new ConcreteStringValue(s.name))
     case (fn:(()=>String)) => this.|(new ConcreteLazyValue(fn))
     case _ => this.|(new ConcreteStringValue(alternative.toString))
   }
-  /** @see above */
-  def |(alternative:Symbol):ArgumentValue
-    = this.|(new ConcreteStringValue(alternative.name))
   /** Allow trailing or symbol */
   def |():ArgumentValue = this
   
@@ -161,12 +163,13 @@ case class ArgumentValue(headIndex:Option[Int],
   }
   /** @see above */
   def &(alternative:Any):ArgumentValue = alternative match {
+    case (v:ArgumentValue) =>
+      if (v.argsRev.size != 1) err("Adding compound argument value")
+      this.&(v.argsRev.head)
+    case (s:Symbol) => this.&(new ConcreteStringValue(s.name))
     case (fn:(()=>String)) => this.&(new ConcreteLazyValue(fn))
     case _ => this.&(new ConcreteStringValue(alternative.toString))
   }
-  /** @see above */
-  def &(alternative:Symbol):ArgumentValue
-    = this.&(new ConcreteStringValue(alternative.name))
   /** Allow trailing and symbol */
   def &():ArgumentValue = this
 
@@ -178,6 +181,12 @@ case class ArgumentValue(headIndex:Option[Int],
   def ?:(headIndex:Int):ArgumentValue = {
     return ArgumentValue(Some(headIndex), argsRev, 'none)
   }
+
+  /** 
+  *   Force the implicit conversion of, e.g., numbers to ArgumentValues.
+  *   @return This
+  */
+  def v:ArgumentValue = this
 
   override def toString:String = all.mkString(" ")
 }

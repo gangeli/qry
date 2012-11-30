@@ -7,7 +7,7 @@ import java.util.Date
 import java.util.concurrent.ThreadPoolExecutor
 
 /**
-*   A concrete job to be run.
+*   An object storing utilities for the Job class
 */
 object Job {
   val RUN_FILE = """^.*/([0-9]+)$""".r
@@ -54,9 +54,16 @@ object Job {
   def json(o:Any):String = "\"" + o.toString.replaceAll("\"", "\\\"") + "\""
 }
 
+/**
+*   A concrete job to be run.
+*/
 case class Job(proc:ProcessBuilder, var isQueued:Boolean, var status:Option[Int]) {
   import Job._
 
+  /**
+   *  Ensure that the run directory is created, and return its path.
+   *  @return The path to the run directory, where stats and results are logged.
+  */
   private def ensureRunDir:Option[File] = {
     try {
       execRoot.map { (root:String) =>
@@ -168,8 +175,11 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean, var status:Option[Int]
 }
 
 object ResultRegex {
+  /** A result of the form "result key = value" */
   val ExplicitResult
    = """^.*result[\s\]]*[:\-\s]\s*(.+)\s*[=:\-]>?\s*([^>].+)\s*(?iu)$""".r
+
+  /** A result of the form "key = number" */
   val ImplicitResultNumeric
    = """^\s*(.+)\s*[=:\-]>?\s*([0-9\.\-e\%\(\)\$]+)\s*(?iu)$""".r
 }

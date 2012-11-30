@@ -202,9 +202,9 @@ object Qry {
   implicit def symbol2argument_value(arg:Symbol):ArgumentValue = ArgumentValue(arg.name)
   /** Create an argument value from a Function */
   implicit def fn2argument_value(arg:(()=>Any)):ArgumentValue = ArgumentValue(arg)
-  /** Create an argument key from a Number */
+  /** Create an argument key from a Number / Boolean*/
   implicit def anyval2argument_key(arg:AnyVal):ArgumentKey = ArgumentKey(arg.toString)
-  /** Create an argument value from a Number */
+  /** Create an argument value from a Number / Boolean */
   implicit def anyval2argument_value(arg:AnyVal):ArgumentValue = ArgumentValue(arg.toString)
   
   /** Create a File from a String filename */
