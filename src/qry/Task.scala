@@ -106,18 +106,23 @@ case class Task(program:String, argsRev:List[Argument],
   }
 
   /** Expand the processes to be created by this task */
-  private def processes:List[ProcessBuilder] = {
+  private def processes:List[(ProcessBuilder,Option[String])] = {
     // Get the jobs created by exploding this task's arguments
     val procs:List[ProcessBuilder]
       = argsRev.foldLeft(ExpandedTask(Nil, Nil, Nil)){
         case (task:ExpandedTask, arg:Argument) => arg(task);
       }.appendToBase(ConcreteStringValue(program))
-          .instances.map{ x => Process(x) }
+          .instances.map{ args =>
+            val execDir = Task.ensureRunDir // get an execution directory
+            Process(execDir
+              .map( dir => args.map( _.replaceAll("ℵexecdir_thunkℵ", dir.getPath) ) )
+              .getOrElse(args) )
+          }
     // Get the procs created by postprocessing this task
     // For example, this includes the result of pipes.
-    postProcessRev.foldRight(procs) {
-          case (fn:(ProcessBuilder=>List[ProcessBuilder]), procs:List[ProcessBuilder]) =>
-      procs.map{ fn(_) }.flatten
+    postProcessRev.foldRight(procs.map( (_, None) )) {
+          case (fn:(ProcessBuilder=>List[ProcessBuilder]), procs:List[(ProcessBuilder,Option[String])]) =>
+      procs.map{ x => fn(x._1).map( (_, x._2) ) }.flatten
     }
   }
 
@@ -131,10 +136,10 @@ case class Task(program:String, argsRev:List[Argument],
     // Then, convert them to Job objects
     {stdoutFile match {
       case Some((file, append)) =>
-        if (append) processes.map( _ #>> file )
-        else processes.map( _ #> file )
+        if (append) processes.map( x => (x._1 #>> file, x._2) )
+        else processes.map( x => (x._1 #> file, x._2) )
       case None => processes
-    }}.map( Job(_, false, None) )
+    }}.map{ case (proc, dir) => Job(proc, false, None, dir) }
   }
 
   /** 
@@ -223,8 +228,9 @@ case class Task(program:String, argsRev:List[Argument],
     if (stdoutFile.isDefined) {
       err("Cannot pipe ('|') after piping to a file ('>')")
     }
+    // TODO(gabor): I think exec directories get messed up here...
     Task(program, argsRev,
-         {(p:ProcessBuilder) => task.processes.map{ p #| _ }} :: postProcessRev,
+         {(p:ProcessBuilder) => task.processes.map{ p #| _._1 }} :: postProcessRev,
          task.stdoutFile)
   }
 
@@ -242,4 +248,33 @@ case class Task(program:String, argsRev:List[Argument],
   }
 
   def repeat(repeatCount:Int) = this * repeatCount
+}
+
+object Task {
+  private val runDirLock = new scala.concurrent.Lock
+  private val RUN_FILE = """^.*/([0-9]+)$""".r
+  /**
+   *  Ensure that the run directory is created, and return its path.
+   *  @return The path to the run directory, where stats and results are logged.
+  */
+  def ensureRunDir:Option[File] = {
+    try {
+      execRoot.map { (root:String) =>
+        runDirLock.acquire
+        val runs = new File(root).listFiles
+          .map { _.getAbsolutePath }
+          .map { _ match { case RUN_FILE(run) => Some(run.toInt)
+                           case _ => None } }
+          .filter( _.isDefined ).map( _.get )
+          .sortWith( _ > _ )
+        val lastRun = if (runs.isEmpty) -1 else runs.head.toInt
+        runDirLock.release
+        val runDir = new File(root + "/" + (lastRun + 1))
+        runDir.mkdir
+        runDir
+      }
+    } catch {
+      case (e:Exception) => err(e.getMessage); None
+    }
+  }
 }

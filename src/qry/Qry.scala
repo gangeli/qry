@@ -42,6 +42,8 @@ object Qry {
   //
   /** The root execution directory, where runs would be logged */
   var execRoot:Option[String] = None
+
+  def touch(relativeFilename:String):String = "ℵexecdir_thunkℵ/" + relativeFilename
   
   //
   // Using keyword
@@ -184,9 +186,11 @@ object Qry {
   // Here be dragons and magic.
   //
   /** Create a job directly from a string */
-  implicit def string2job(cmd:String):Job = new Job(Process(cmd), true, None)
+  implicit def string2job(cmd:String):Job
+    = new Job(Process(cmd), true, None, Task.ensureRunDir.map( _.getPath ))
   /** Create a job directly from a list of program name + arguments */
-  implicit def list2job(cmd:List[String]):Job = new Job(Process(cmd), true, None)
+  implicit def list2job(cmd:List[String]):Job
+    = new Job(Process(cmd), true, None, Task.ensureRunDir.map( _.getPath ))
   /** Create a task directly */
   implicit def string2task(programName:String):Task = new Task(programName, Nil, Nil, None)
   

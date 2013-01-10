@@ -10,8 +10,6 @@ import java.util.concurrent.ThreadPoolExecutor
 *   An object storing utilities for the Job class
 */
 object Job {
-  val RUN_FILE = """^.*/([0-9]+)$""".r
-
   def using[A <: {def close(): Unit}, B](param: A)(f: A => B): B =
     try { f(param) } finally { param.close() }
 
@@ -57,31 +55,9 @@ object Job {
 /**
 *   A concrete job to be run.
 */
-case class Job(proc:ProcessBuilder, var isQueued:Boolean, var status:Option[Int]) {
+case class Job(proc:ProcessBuilder, var isQueued:Boolean,
+               var status:Option[Int], execDir:Option[String]) {
   import Job._
-
-  /**
-   *  Ensure that the run directory is created, and return its path.
-   *  @return The path to the run directory, where stats and results are logged.
-  */
-  private def ensureRunDir:Option[File] = {
-    try {
-      execRoot.map { (root:String) =>
-        val runs = new File(root).listFiles
-          .map { _.getAbsolutePath }
-          .map { _ match { case RUN_FILE(run) => Some(run.toInt)
-                           case _ => None } }
-          .filter( _.isDefined ).map( _.get )
-          .sortWith( _ > _ )
-        val lastRun = if (runs.isEmpty) -1 else runs.head.toInt
-        val runDir = new File(root + "/" + (lastRun + 1))
-        runDir.mkdir
-        runDir
-      }
-    } catch {
-      case (e:Exception) => err(e.getMessage); None
-    }
-  }
   
   /**
   *   Queue a task to be run.
@@ -112,7 +88,7 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean, var status:Option[Int]
             { (err:String) => System.err.println(err) }
           ))
           // Write info
-          ensureRunDir match {
+          execDir match {
             case Some(runDir) =>
               val b:StringBuilder = new StringBuilder
               b.append("{\n")
