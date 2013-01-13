@@ -119,7 +119,7 @@ Versus:
      >> // ping -c 3 -a facebook.com
      >> // ping -c 4 -a google.com
 
-Using() Function
+Configuration
 -------------
 Many of the auxilliary features of Qry are provided with the `using()` function.
 A single function call with different types of arguments will eventually be able
