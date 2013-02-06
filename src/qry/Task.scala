@@ -108,19 +108,21 @@ case class Task(program:String, argsRev:List[Argument],
   /** Expand the processes to be created by this task */
   private def processes:List[(ProcessBuilder,Option[String])] = {
     // Get the jobs created by exploding this task's arguments
-    val procs:List[ProcessBuilder]
+    val procs:List[(ProcessBuilder,Option[String])]
       = argsRev.foldLeft(ExpandedTask(Nil, Nil, Nil)){
         case (task:ExpandedTask, arg:Argument) => arg(task);
       }.appendToBase(ConcreteStringValue(program))
           .instances.map{ args =>
             val execDir = Task.ensureRunDir // get an execution directory
-            Process(execDir
-              .map( dir => args.map( _.replaceAll("ℵexecdir_thunkℵ", dir.getPath) ) )
-              .getOrElse(args) )
+            (Process(execDir
+              .map( dir =>
+                args.map( _.replaceAll("ℵexecdir_thunkℵ", dir.getPath) ) )
+              .getOrElse(args) ),
+             execDir.map( _.getPath ))
           }
     // Get the procs created by postprocessing this task
     // For example, this includes the result of pipes.
-    postProcessRev.foldRight(procs.map( (_, None) )) {
+    postProcessRev.foldRight(procs) {
           case (fn:(ProcessBuilder=>List[ProcessBuilder]), procs:List[(ProcessBuilder,Option[String])]) =>
       procs.map{ x => fn(x._1).map( (_, x._2) ) }.flatten
     }
