@@ -309,12 +309,12 @@ shortcuts and utilities are provided:
    string fragments. For example, the following might select the key for
    accuracy:
 
-       select (*) where maximized(key("acc"))
+   `select (*) where maximized(key("acc"))`
 
 -  `get(selection)` will return the runs matching a predicate.
    For example, the following will get the highest accuracy run:
 
-       get( max(key("acc")) )
+   `get( max(key("acc")) )`
 
 Pitfalls and TODOs
 -------------
