@@ -29,6 +29,11 @@ there's not much of it (arguably, this is all of it)!
      
      >> Hello World! (but, we're cheating)
 
+You can also start Qry as an interactive prompt, with all dependencies
+bundled, using:
+
+    java -jar qry.jar
+
 ### Hello World!
 On most unix systems, there is a program entitled `hello` which prints Hello World to the screen.
 We will run this program, with no arguments.
@@ -252,3 +257,8 @@ Pitfalls and TODOs
 -------------
 -  The `|` and `&` operators are overloaded for numbers; thus, entries such as `-('param, 1 | 2)` will resolve the
    numeric operation `1 | 2` and not start two runs with `param=1` and `param=2`.
+
+-  The interactive mode will eat your terminal; you must `reset` the terminal
+   after exiting, or start the command as;
+
+     java -Djline.shutdownhook=true -jar ./qry.jar

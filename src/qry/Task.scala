@@ -106,25 +106,35 @@ case class Task(program:String, argsRev:List[Argument],
   }
 
   /** Expand the processes to be created by this task */
-  private def processes:List[(ProcessBuilder,Option[String])] = {
+  private def processes:List[(ProcessBuilder,String,Option[String])] = {
+    // Create a shell script from a list of arguments
+    def argsAsShell(args:List[String]):String = {
+      if (postProcessRev.length > 0) {
+        """echo "Qry cannot recreate piped processes""""
+      } else {
+        Task.argsAsShell(args)
+      }
+    }
     // Get the jobs created by exploding this task's arguments
-    val procs:List[(ProcessBuilder,Option[String])]
+    val procs:List[(ProcessBuilder, String, Option[String])]
       = argsRev.foldLeft(ExpandedTask(Nil, Nil, Nil)){
         case (task:ExpandedTask, arg:Argument) => arg(task);
       }.appendToBase(ConcreteStringValue(program))
-          .instances.map{ args =>
+          .instances.map{ (args:List[String]) =>
             val execDir = Task.ensureRunDir // get an execution directory
             (Process(execDir
               .map( dir =>
                 args.map( _.replaceAll("ℵexecdir_thunkℵ", dir.getPath) ) )
               .getOrElse(args) ),
+             argsAsShell(args),
              execDir.map( _.getPath ))
           }
     // Get the procs created by postprocessing this task
     // For example, this includes the result of pipes.
     postProcessRev.foldRight(procs) {
-          case (fn:(ProcessBuilder=>List[ProcessBuilder]), procs:List[(ProcessBuilder,Option[String])]) =>
-      procs.map{ x => fn(x._1).map( (_, x._2) ) }.flatten
+          case (fn:(ProcessBuilder=>List[ProcessBuilder]),
+                procs:List[(ProcessBuilder,String,Option[String])]) =>
+      procs.map{ x => fn(x._1).map( (_, x._2, x._3) ) }.flatten
     }
   }
 
@@ -138,10 +148,10 @@ case class Task(program:String, argsRev:List[Argument],
     // Then, convert them to Job objects
     {stdoutFile match {
       case Some((file, append)) =>
-        if (append) processes.map( x => (x._1 #>> file, x._2) )
-        else processes.map( x => (x._1 #> file, x._2) )
+        if (append) processes.map( x => (x._1 #>> file, x._2, x._3) )
+        else processes.map( x => (x._1 #> file, x._2, x._3) )
       case None => processes
-    }}.map{ case (proc, dir) => Job(proc, false, None, dir) }
+    }}.map{ case (proc, bash, dir) => Job(proc, false, None, bash, dir) }
   }
 
   /** 
@@ -278,5 +288,22 @@ object Task {
     } catch {
       case (e:Exception) => err(e.getMessage); None
     }
+  }
+
+  def argsAsShell(args:Seq[String]):String = {
+    val sh = new StringBuilder
+    // (program name)
+    sh.append("'").append(args.head).append("'\\\n\t")
+    // (arguments)
+    args.tail.foreach{ (uncleanArg:String) =>
+      val arg = uncleanArg.replaceAll("'", "\\'")
+      if (arg.startsWith(Qry.dash_value)) {
+        sh.append("'").append(arg).append("' ")
+      } else {
+        sh.append("'").append(arg).append("'\\\n\t")
+      }
+    }
+    // (return)
+    sh.toString
   }
 }

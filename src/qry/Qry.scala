@@ -98,6 +98,12 @@ object Qry {
   }
   
   //
+  // Utilities
+  //
+  def $(key:String):String = System.getenv(key)
+  def $(key:Symbol):String = $(key.name)
+  
+  //
   // Top Level Entry Points
   //
   /** Submit a task for running. This is the usual entry point.
@@ -187,10 +193,11 @@ object Qry {
   //
   /** Create a job directly from a string */
   implicit def string2job(cmd:String):Job
-    = new Job(Process(cmd), true, None, Task.ensureRunDir.map( _.getPath ))
+    = new Job(Process(cmd), true, None, cmd, Task.ensureRunDir.map( _.getPath ))
   /** Create a job directly from a list of program name + arguments */
   implicit def list2job(cmd:List[String]):Job
-    = new Job(Process(cmd), true, None, Task.ensureRunDir.map( _.getPath ))
+    = new Job(Process(cmd), true, None, Task.argsAsShell(cmd),
+              Task.ensureRunDir.map( _.getPath ))
   /** Create a task directly */
   implicit def string2task(programName:String):Task = new Task(programName, Nil, Nil, None)
   
@@ -213,4 +220,36 @@ object Qry {
   
   /** Create a File from a String filename */
   implicit def string2file(filename:String):File = new File(filename)
+  
+  //
+  // Queryable Command Line
+  //
+  def main(args:Array[String]):Unit = {
+		//(imports)
+		import scala.tools.nsc.interpreter.{IMain,JLineReader,JLineCompletion}
+		import scala.tools.nsc.Settings
+    // (args)
+    if (args.length > 0) {
+      args.foreach{ using(_) }
+    }
+		//(create interpreter)
+		val settings = new Settings
+		settings.usejavacp.value = true
+		val interpreter:IMain = new IMain(settings)
+		val reader:JLineReader = new JLineReader(new JLineCompletion(interpreter))
+		//(initial commands)
+		interpreter.interpret("import Qry._")
+		interpreter.interpret("import QryLang._")
+		//(REPL)
+		var cond = true
+		while(cond){
+      try {
+			  val str = reader.readLine("qry> ")
+			  interpreter.interpret(str)
+      } catch {
+        case (e:Exception) => e.printStackTrace
+      }
+		}
+    reader.reset
+  }
 }

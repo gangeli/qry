@@ -56,7 +56,7 @@ object Job {
 *   A concrete job to be run.
 */
 case class Job(proc:ProcessBuilder, var isQueued:Boolean,
-               var status:Option[Int], execDir:Option[String]) {
+               var status:Option[Int], bashCmd:String, execDir:Option[String]) {
   import Job._
   
   /**
@@ -74,6 +74,12 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
           // Collect helpful info
           val start:Long = System.currentTimeMillis
           var results = HashMap[String, String]()
+          // Save configuration
+          execDir match {
+            case Some(runDir) =>
+              write(runDir + "/_rerun.sh", bashCmd)
+            case None =>
+          }
           // Run the program
           status = Some(proc !< ProcessLogger(
             {(out:String) => 
@@ -124,13 +130,6 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
               }
               b.append("}")
               write(runDir + "/_qry.json", b.toString)
-              // (command)
-              write(runDir + "/_cmd.txt", proc.toString)
-              try {
-                new ObjectOutputStream(
-                  new FileOutputStream(runDir + "/_cmd.ser"))
-                  .writeObject(proc)
-              } catch { case (e:RuntimeException) => () }
             case None => // do nothing
           }
           // Write results
