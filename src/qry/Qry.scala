@@ -196,7 +196,8 @@ object Qry {
     = new Job(Process(cmd), true, None, cmd, Task.ensureRunDir.map( _.getPath ))
   /** Create a job directly from a list of program name + arguments */
   implicit def list2job(cmd:List[String]):Job
-    = new Job(Process(cmd), true, None, Task.argsAsShell(cmd),
+    = new Job(Process(cmd), true, None,
+              Task.argsAsShell(cmd, Task.ensureRunDir.map( _.getPath )),
               Task.ensureRunDir.map( _.getPath ))
   /** Create a task directly */
   implicit def string2task(programName:String):Task = new Task(programName, Nil, Nil, None)

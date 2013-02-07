@@ -75,9 +75,35 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
           val start:Long = System.currentTimeMillis
           var results = HashMap[String, String]()
           // Save configuration
+          // (git revision)
+          var gitRevision:Option[String] = None
+          if ("""git rev-parse --verify HEAD""" ! ProcessLogger(
+                  out => gitRevision = Some(out),
+                  err => ()
+                ) == 0 && !gitRevision.isDefined) {
+            Qry.err("Git command did not output revision SHA")
+          }
+          // (bash file)
           execDir match {
             case Some(runDir) =>
-              write(runDir + "/_rerun.sh", bashCmd)
+              write(runDir + "/_rerun.sh",
+                "#!/bin/sh\n" +
+                "#\n" +
+                "# Automatically generated with Qry (https://github.com/gangeli/qry)\n\n" +
+                "# Restore working directory\n" +
+                """cd """ + System.getProperty("user.dir") + "\n" + 
+                { gitRevision match {
+                  case Some(sha) =>
+                    "# Manage Git\n" +
+                    """if [ `git rev-parse --verify HEAD` != """ +
+                       "\"" + gitRevision + "\"" + """ ]; then """ +
+                       """echo "WARNING: Git revision has changed from """ +
+                       gitRevision + "\"" + """; fi""" + "\n"
+                  case None => ""
+                }} +
+                "\n" +
+                "# Run Program\n" +
+                bashCmd)
             case None =>
           }
           // Run the program
@@ -114,13 +140,11 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
               b.append("  \"run_dir\":      ")
               b.append(json(runDir)).append(",\n")
               // (git revision info)
-              var revisionSHA:Option[String] = None
-              if ("""git rev-parse --verify HEAD""" ! ProcessLogger(
-                      out => revisionSHA = Some(out),
-                      err => ()
-                    ) == 0) {
-                b.append("  \"git_rev\":      ")
-                b.append(json(revisionSHA.get)).append(",\n")
+              gitRevision match {
+                case Some(revisionSHA) =>
+                  b.append("  \"git_rev\":      ")
+                  b.append(json(revisionSHA)).append(",\n")
+                case None => 
               }
               b.append("\n")
               // (results)

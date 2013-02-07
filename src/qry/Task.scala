@@ -108,11 +108,11 @@ case class Task(program:String, argsRev:List[Argument],
   /** Expand the processes to be created by this task */
   private def processes:List[(ProcessBuilder,String,Option[String])] = {
     // Create a shell script from a list of arguments
-    def argsAsShell(args:List[String]):String = {
+    def argsAsShell(args:List[String], runDir:Option[String]):String = {
       if (postProcessRev.length > 0) {
         """echo "Qry cannot recreate piped processes""""
       } else {
-        Task.argsAsShell(args)
+        Task.argsAsShell(args, runDir)
       }
     }
     // Get the jobs created by exploding this task's arguments
@@ -126,7 +126,7 @@ case class Task(program:String, argsRev:List[Argument],
               .map( dir =>
                 args.map( _.replaceAll("ℵexecdir_thunkℵ", dir.getPath) ) )
               .getOrElse(args) ),
-             argsAsShell(args),
+             argsAsShell(args, execDir.map( _.getPath )),
              execDir.map( _.getPath ))
           }
     // Get the procs created by postprocessing this task
@@ -290,20 +290,25 @@ object Task {
     }
   }
 
-  def argsAsShell(args:Seq[String]):String = {
+  def argsAsShell(args:Seq[String], runDir:Option[String]):String = {
     val sh = new StringBuilder
     // (program name)
     sh.append("'").append(args.head).append("'\\\n\t")
     // (arguments)
+    var lastDash = false
     args.tail.foreach{ (uncleanArg:String) =>
       val arg = uncleanArg.replaceAll("'", "\\'")
+                          .replaceAll("ℵexecdir_thunkℵ", runDir.getOrElse("/tmp/qry") + "/_rerun")
       if (arg.startsWith(Qry.dash_value)) {
+        if (lastDash) sh.append("\\\n\t")
         sh.append("'").append(arg).append("' ")
+        lastDash = true
       } else {
         sh.append("'").append(arg).append("'\\\n\t")
+        lastDash = false
       }
     }
     // (return)
-    sh.toString
+    sh.substring(0, sh.lastIndexOf('\\'))
   }
 }

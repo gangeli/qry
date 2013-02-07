@@ -31,25 +31,25 @@ ${DIST}/${NAME}.jar: $(wildcard ${SRC}/qry/*.scala) Makefile ${SRC}/Manifest
 	mkdir -p ${TMP}
   #((scala-library))
 	rm -rf ${TMP}/scala-library
-	unzip ${SCALA_HOME}/lib/scala-library.jar -d ${TMP}/scala-library
+	unzip ${SCALA_HOME}/lib/scala-library.jar -d ${TMP}/scala-library > /dev/null
 	rm -r ${TMP}/scala-library/META-INF
 	jar uf ${DIST}/qry.jar -C ${TMP}/scala-library/ .
 	rm -rf ${TMP}/scala-library
   #((scala-compiler))
 	rm -rf ${TMP}/scala-compiler
-	unzip ${SCALA_HOME}/lib/scala-compiler.jar -d ${TMP}/scala-compiler
+	unzip ${SCALA_HOME}/lib/scala-compiler.jar -d ${TMP}/scala-compiler > /dev/null
 	rm -r ${TMP}/scala-compiler/META-INF
 	jar uf ${DIST}/qry.jar -C ${TMP}/scala-compiler/ .
 	rm -rf ${TMP}/scala-compiler
   #((scala-reflect))
 	rm -rf ${TMP}/scala-reflect
-	unzip ${SCALA_HOME}/lib/scala-reflect.jar -d ${TMP}/scala-reflect
+	unzip ${SCALA_HOME}/lib/scala-reflect.jar -d ${TMP}/scala-reflect > /dev/null
 	rm -r ${TMP}/scala-reflect/META-INF
 	jar uf ${DIST}/qry.jar -C ${TMP}/scala-reflect/ .
 	rm -rf ${TMP}/scala-reflect
   #((jline))
 	rm -rf ${TMP}/jline
-	unzip ${SCALA_HOME}/lib/jline.jar -d ${TMP}/jline
+	unzip ${SCALA_HOME}/lib/jline.jar -d ${TMP}/jline > /dev/null
 	rm -r ${TMP}/jline/META-INF
 	jar uf ${DIST}/qry.jar -C ${TMP}/jline/ .
 	rm -rf ${TMP}/jline
