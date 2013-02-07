@@ -240,7 +240,7 @@ object Qry {
 		val reader:JLineReader = new JLineReader(new JLineCompletion(interpreter))
 		//(initial commands)
 		interpreter.interpret("import Qry._")
-		interpreter.interpret("import QryLang._")
+		interpreter.interpret("import QrySQL._")
 		//(REPL)
 		var cond = true
 		while(cond){
