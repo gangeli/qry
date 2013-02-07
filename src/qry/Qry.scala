@@ -226,27 +226,27 @@ object Qry {
   // Queryable Command Line
   //
   def main(args:Array[String]):Unit = {
-		//(imports)
-		import scala.tools.nsc.interpreter.{IMain,JLineReader,JLineCompletion}
-		import scala.tools.nsc.Settings
+    //(imports)
+    import scala.tools.nsc.interpreter.{IMain,JLineReader,JLineCompletion}
+    import scala.tools.nsc.Settings
     // (args)
     if (args.length > 0) {
       args.foreach{ using(_) }
     }
-		//(create interpreter)
-		val settings = new Settings
-		settings.usejavacp.value = true
-		val interpreter:IMain = new IMain(settings)
-		val reader:JLineReader = new JLineReader(new JLineCompletion(interpreter))
-		//(initial commands)
-		interpreter.interpret("import Qry._")
-		interpreter.interpret("import QrySQL._")
-		//(REPL)
-		var cond = true
-		while(cond){
+    //(create interpreter)
+    val settings = new Settings
+    settings.usejavacp.value = true
+    val interpreter:IMain = new IMain(settings)
+    val reader:JLineReader = new JLineReader(new JLineCompletion(interpreter))
+    //(initial commands)
+    interpreter.interpret("import Qry._")
+    interpreter.interpret("import QrySQL._")
+    //(REPL)
+    var cond = true
+    while(cond){
       try {
-			  val str = reader.readLine("qry> ")
-			  interpreter.interpret(str)
+        val str = reader.readLine("qry> ")
+        interpreter.interpret(str)
       } catch {
         case (e:Exception) => e.printStackTrace
       }
