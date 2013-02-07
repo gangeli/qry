@@ -253,6 +253,69 @@ For example, the example from lazy functions could be simplified to:
      >> 2
      >> 3
 
+Query Results
+-------------
+Of course, managing experiments would not be particularly useful if there
+weren't an easy way to retreive and analyze these results.
+Qry provides a simple command-line interface for browsing results; this is
+particularly useful when a large number of jobs are started and need to be
+digested.
+
+### Basic Usage
+The command line interface can be started with:
+
+    java -jar qry.jar path/to/exec/dir/
+
+Note that this will start up a full-blown Scala interpreter -- any valid Scala
+code is valid here!
+However, by default, a small SQL-like domain specific language is loaded.
+Like SQL, the fundamental operations you can perform are `projection` and
+`selection`. Projection allows you to display only a subset of the keys for
+inputs and results; selection allows you to select a subset of the runs, based
+on certain critera.
+
+For example, the following will display only `key1` and `key2` where
+`accuracy` is greater than 0.7:
+
+    select ('key1, 'key2) where 'accuracy > 0.7
+
+Wildcards are also supported for projection
+    
+    select (*) where 'accuracy > 0.7
+
+or
+
+     * where 'accuracy > 0.7
+
+Additionally, predicates such as `max` and `min` can be used (diverging somewhat
+from SQL syntax):
+
+    select (*) where 'accuracy.maximized
+
+This is equivalent to saying the following:
+
+    select (*) where maximized('accuracy)
+
+### Useful Utilities
+The goal of the language is to be as forgiving as possible; thus, a number of
+shortcuts and utilities are provided:
+
+-  `maximized` can be replaced with `max`, `maximize`, or `maximum`; the same
+   holds for `minimized`.
+
+-  `keys` will show all the keys that are not constant across the runs.
+
+-  `key(fragments*)` will return a single key that matches the provided
+   string fragments. For example, the following might select the key for
+   accuracy:
+
+     select (*) where maximized(key("acc"))
+
+-  `get(selection)` will return the runs matching a predicate.
+    For example, the following will get the highest accuracy run:
+
+    get( max(key("acc")) )
+
 Pitfalls and TODOs
 -------------
 -  The `|` and `&` operators are overloaded for numbers; thus, entries such as `-('param, 1 | 2)` will resolve the

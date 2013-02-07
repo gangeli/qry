@@ -351,8 +351,10 @@ object QrySQL {
   def min(key:SelectionKey):SelectionLike = key.min
   def minimum(key:SelectionKey):SelectionLike = key.min
   def minimize(key:SelectionKey):SelectionLike = key.min
+  def minimized(key:SelectionKey):SelectionLike = key.min
   def max(key:SelectionKey):SelectionLike = key.max
   def maximum(key:SelectionKey):SelectionLike = key.max
   def maximize(key:SelectionKey):SelectionLike = key.max
+  def maximized(key:SelectionKey):SelectionLike = key.max
 
 }
