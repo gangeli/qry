@@ -250,7 +250,6 @@ object Qry {
       } catch {
         case (e:Exception) => e.printStackTrace
       }
-		}
-    reader.reset
+    }
   }
 }
