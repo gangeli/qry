@@ -200,12 +200,15 @@ case class ConcreteStringValue(value:String) extends ConcreteArgumentValue {
 }
 
 case class ConcreteLazyValue(value:() => Any) extends ConcreteArgumentValue {
-  override def get:List[String] = value() match {
-    case (p:Product) =>
-      (0 until p.productArity).foldLeft(List[String]()){
-          case (lst:List[String], i:Int) => p.productElement(i).toString :: lst
-      }.reverse
-    case _ => List(value().toString)
+  override def get:List[String] = {
+    val v = value()
+    v match {
+      case (p:Product) =>
+        (0 until p.productArity).foldLeft(List[String]()){
+            case (lst:List[String], i:Int) => p.productElement(i).toString :: lst
+        }.reverse
+      case _ => List(v.toString)
+    }
   }
 }
 
