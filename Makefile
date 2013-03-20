@@ -11,6 +11,8 @@ TMP=tmp
 # (compiler)
 SCALAC=scalac
 SCALADOC=scaladoc
+# (paths)
+PLUGINS_CP=plugin_lib/typesafe-config-1.0.0.jar
 
 default: ${DIST}/${NAME}.jar
 
@@ -22,7 +24,7 @@ ${DIST}/${NAME}.jar: $(wildcard ${SRC}/qry/*.scala) Makefile ${SRC}/Manifest
 	mkdir -p ${BUILD}
 	mkdir -p ${DIST}
 	#(compile)
-	${SCALAC} -deprecation -d ${BUILD} `find ${SRC} -name "*.scala"`
+	@${SCALAC} -deprecation -cp ${PLUGINS_CP}:${CLASSPATH} -d ${BUILD} `find ${SRC} -name "*.scala"`
 	#(jar)
 	jar cfm ${DIST}/${NAME}.jar ${SRC}/Manifest -C $(BUILD) .
 	jar uf ${DIST}/${NAME}.jar -C $(SRC) .
@@ -53,6 +55,13 @@ ${DIST}/${NAME}.jar: $(wildcard ${SRC}/qry/*.scala) Makefile ${SRC}/Manifest
 	rm -r ${TMP}/jline/META-INF
 	jar uf ${DIST}/qry.jar -C ${TMP}/jline/ .
 	rm -rf ${TMP}/jline
+  #(plugins)
+  #((typesafe))
+	rm -rf ${TMP}/typesafe
+	unzip plugin_lib/typesafe-config-1.0.0.jar -d ${TMP}/typesafe > /dev/null
+	rm -r ${TMP}/typesafe/META-INF
+	jar uf ${DIST}/qry.jar -C ${TMP}/typesafe/ .
+	rm -rf ${TMP}/typesafe
 
 doc:
 	mkdir -p ${DOC}

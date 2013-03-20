@@ -1,6 +1,7 @@
 import scala.collection.JavaConversions._
 import scala.sys.process._
 import java.util.concurrent._
+import java.util.Properties
 import java.io.File
 
 /**
@@ -45,11 +46,24 @@ object Qry {
 
   def touch(relativeFilename:String):String = "ℵexecdir_thunkℵ/" + relativeFilename
   
+  /** Properties to prepend to every run */
+  val staticProperties:Properties = new Properties
+
   //
   // Using keyword
   //
   def input(spec:String, force:Boolean = true):Boolean = {
-    return false
+    if (new File(spec).canRead()) {
+      // Check to make sure we have plugin
+      if (!Plugins.haveTypesafeConfig) {
+        err("Cannot load input " + spec + " without Typesafe Config in classpath")
+      }
+      // Load Input
+      TypesafeConfigPlugin.appendProperties(staticProperties, new File(spec))
+      true
+    } else {
+      false
+    }
   }
 
   def execdir(spec:String, force:Boolean = true):Boolean = {
@@ -151,12 +165,12 @@ object Qry {
     executor = Executors.newFixedThreadPool(threadPoolSize)
   }
   
-  /** Analyze what Qry would do for a given task, printing out the results.
+  /** Explain what Qry would do for a given task, printing out the results.
   *   This is useful for, e.g., debugging how many runs will be started
   *   without actually starting the runs.
   *   @param task The task to analyze
   */
-  def analyze(task:Task) {
+  def explain(task:Task) {
     val jobs:List[Job] = task.jobs
     println("-- Begin jobs (" + jobs.length + "):")
     jobs.foreach{ (job:Job) => println(job) }
@@ -250,6 +264,17 @@ object Qry {
       } catch {
         case (e:Exception) => e.printStackTrace
       }
+    }
+  }
+}
+
+object Plugins {
+  def haveTypesafeConfig:Boolean = {
+    try {
+      Class.forName("com.typesafe.config.ConfigFactory")
+      true
+    } catch {
+      case (e:ClassNotFoundException) => false
     }
   }
 }

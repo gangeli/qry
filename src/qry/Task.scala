@@ -1,7 +1,9 @@
 import Qry._
 
 import scala.sys.process._
+import scala.collection.JavaConversions._
 import java.io.File
+import java.util.Properties
 
 /**
 *   An expanded representation of a task specification.
@@ -119,8 +121,8 @@ case class Task(program:String, argsRev:List[Argument],
     val procs:List[(ProcessBuilder, String, Option[String])]
       = argsRev.foldLeft(ExpandedTask(Nil, Nil, Nil)){
         case (task:ExpandedTask, arg:Argument) => arg(task);
-      }.appendToBase(ConcreteStringValue(program))
-          .instances.map{ (args:List[String]) =>
+      }.instances.map{ (dynamicArgs:List[String]) =>
+            val args = program :: (Task.propertiesToArgs(Qry.staticProperties) ::: dynamicArgs)
             val execDir = Task.ensureRunDir // get an execution directory
             (Process(execDir
               .map( dir =>
@@ -310,5 +312,13 @@ object Task {
     }
     // (return)
     sh.substring(0, sh.lastIndexOf('\\'))
+  }
+
+  def propertiesToArgs(props:Properties):List[String] = {
+    {for (key:Any <- props.keySet) yield {
+      val value = props.get(key)
+      assert (value != null)
+      List[String]( Qry.dash_value + key.toString, value.toString )
+    }}.toList.flatten
   }
 }

@@ -101,6 +101,7 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
                        gitRevision + "\"" + """; fi""" + "\n"
                   case None => ""
                 }} +
+                "mkdir -p " + runDir + "/_rerun" +
                 "\n" +
                 "# Run Program\n" +
                 bashCmd)
@@ -157,6 +158,9 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
             case None => // do nothing
           }
           // Write results
+          execDir.foreach{ (dir:String) =>
+            println("-- stats saved to " + dir)
+          }
           // Signal completion
           whenDone()
         }
