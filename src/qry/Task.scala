@@ -98,7 +98,7 @@ case class ExpandedTask(baseArgs:List[String],
 /**
 *   An task specification, in general yielding many runs.
 */
-case class Task(program:String, argsRev:List[Argument],
+case class Task(program:List[String], argsRev:List[Argument],
                 postProcessRev:List[ProcessBuilder=>List[ProcessBuilder]],
                 stdoutFile:Option[(File,Boolean)]) {
 
@@ -106,6 +106,20 @@ case class Task(program:String, argsRev:List[Argument],
     val joined = processes(0).toString.replaceAll(", ", " ")
     joined.substring(1, joined.length - 1)
   }
+
+  /** Cast this program as a single list of terms */
+  def toList:List[String] = {
+    val terms = argsRev.foldLeft(ExpandedTask(Nil, Nil, Nil)){
+        case (task:ExpandedTask, arg:Argument) => arg(task);
+      }.instances.map{ (dynamicArgs:List[String]) =>
+          program.toList ::: (Task.propertiesToArgs(Qry.staticProperties) ::: dynamicArgs)
+      }
+    if (terms.length > 1) err("Program cannot be uniquely converted to list: " + toString)
+    terms(0)
+  }
+
+  /** Cast this program as a single array of terms */
+  def toArray:Array[String] = toList.toArray
 
   /** Expand the processes to be created by this task */
   private def processes:List[(ProcessBuilder,String,Option[String])] = {
@@ -122,7 +136,7 @@ case class Task(program:String, argsRev:List[Argument],
       = argsRev.foldLeft(ExpandedTask(Nil, Nil, Nil)){
         case (task:ExpandedTask, arg:Argument) => arg(task);
       }.instances.map{ (dynamicArgs:List[String]) =>
-            val args = program :: (Task.propertiesToArgs(Qry.staticProperties) ::: dynamicArgs)
+            val args = program ::: (Task.propertiesToArgs(Qry.staticProperties) ::: dynamicArgs)
             val execDir = Task.ensureRunDir // get an execution directory
             (Process(execDir
               .map( dir =>

@@ -214,7 +214,8 @@ object Qry {
               Task.argsAsShell(cmd, Task.ensureRunDir.map( _.getPath )),
               Task.ensureRunDir.map( _.getPath ))
   /** Create a task directly */
-  implicit def string2task(programName:String):Task = new Task(programName, Nil, Nil, None)
+  implicit def string2task(programName:String):Task = new Task(List(programName), Nil, Nil, None)
+  implicit def list2task(program:Iterable[String]):Task = new Task(program.toList, Nil, Nil, None)
   
   /** Create an argument from a pair of (ArgumentKey, ArgumentValue) */
   implicit def pair2argument(arg:(ArgumentKey,ArgumentValue)):Argument = Argument(arg._1, arg._2)
