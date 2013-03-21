@@ -53,13 +53,15 @@ object Qry {
   // Using keyword
   //
   def input(spec:String, force:Boolean = true):Boolean = {
-    if (new File(spec).canRead()) {
+    val specFile = new File(spec)
+    if (force ||
+        (!spec.endsWith("/") && specFile.canRead() && !specFile.isDirectory)) {
       // Check to make sure we have plugin
       if (!Plugins.haveTypesafeConfig) {
         err("Cannot load input " + spec + " without Typesafe Config in classpath")
       }
       // Load Input
-      TypesafeConfigPlugin.appendProperties(staticProperties, new File(spec))
+      TypesafeConfigPlugin.appendProperties(staticProperties, specFile)
       true
     } else {
       false
@@ -67,9 +69,12 @@ object Qry {
   }
 
   def execdir(spec:String, force:Boolean = true):Boolean = {
-    if (!force && !spec.endsWith("/")) return false
-    // Create and error check root execdir directory
     val root = new File(spec)
+    if (!force &&
+        (!spec.endsWith("/") || !root.canRead() || !root.isDirectory)) {
+      return false
+    }
+    // Create and error check root execdir directory
     if (root.exists && !root.isDirectory) {
       err("Argument to execdir is not a directory: '" + spec + "'")
     }
