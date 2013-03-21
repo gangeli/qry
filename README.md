@@ -35,7 +35,7 @@ bundled, using:
     java -jar qry.jar
 
 ### Hello World!
-On most unix systems, there is a program entitled `hello` which prints Hello World to the screen.
+On most Unix systems, there is a program entitled `hello` which prints Hello World to the screen.
 We will run this program, with no arguments.
 Note that we can use either "strings" or 'symbols to denote a program name, and later arguments as well.
 Submitting a program then comes down to simply calling the `submit()` function.
@@ -55,8 +55,8 @@ Submitting a program then comes down to simply calling the `submit()` function.
 
 ### Hello Google!
 Of course, this would not be a very useful tool if you could not pass a program command line arguments.
-This is done in a way reminiscent of shell scripting: A dash (`-`) preceeds arguments which are intended to
-be preceded by a dash; an arrow (`->`) preceeds arguments which are passed verbatim.
+This is done in a way reminiscent of shell scripting: A dash (`-`) precedes arguments which are intended to
+be preceded by a dash; an arrow (`->`) precedes arguments which are passed verbatim.
 Arguments which are intended to be key/values are placed into a tuple: `-("key", "value")`.
 For example, we can try to ping Google:
 
@@ -79,7 +79,7 @@ Let's not leave anyone out!
 If we want to start many runs with multiple parameters, we can separate them with either the `&` symbol
 or `|` symbol.
 The difference between the two becomes apparent when multiple arguments vary -- see below.
-For now, let's try to start two jobs: one to ping google, and one to ping facebook:
+For now, let's try to start two jobs: one to ping Google, and one to ping Facebook:
 
      #!/bin/bash
      exec scala -cp qry.jar "$0" "$@"
@@ -126,7 +126,7 @@ Versus:
 
 Configuration
 -------------
-Many of the auxilliary features of Qry are provided with the `using()` function.
+Many of the auxiliary features of Qry are provided with the `using()` function.
 A single function call with different types of arguments will eventually be able
 to handle a wide range of different tasks.
 Examples are documented in the following sections:
@@ -162,13 +162,36 @@ Informally, these are lines of the form:
 
 Lastly, note that you can retrieve this run directory with the `touch` function.
 For example, the following command will create a new file in the execution
-directory (confusingly, using the unix touch program):
+directory (confusingly, using the Unix touch program):
      
      using("/path/to/dir/")
      submit("touch" ->touch("filename_to_create.txt"))
      
      >> -- 1 job submitted
      >> // touch /path/to/dir/filename_to_create.txt
+
+### Properties File
+Often, a configuration already exists in a properties file and it is useful
+to encode small differences rather than translating the entire file.
+In this case, you can specify the file you'd like to import using:
+     
+     using("/properties/file")
+
+Note that the file must exist, and should not contain a trailing `/`.
+Also note that this requires Typesafe Config
+(https://github.com/typesafehub/config)
+in your classpath at runtime -- all of the heavy lifting happens in that
+project.
+
+The format of the properties file can be any of the formats that Typesafe
+Config takes, including Java `.properties`, JSON, or HOCON / `.conf`.
+See their GitHub page for more details
+
+The options in the properties will be appended directly after the program
+name (the first argument to `submit`), and before all other arguments.
+Note that you'd like it to be appended at a specific point, the first
+portion should be specified as a list of arguments -- for example, by
+calling `.toList` on the first group of arguments.
 
 ### Remote Execution
 Eventually, the capability of running jobs on remote hosts will be added.
@@ -180,22 +203,12 @@ This functionality is not yet implemented, but is documented here as a roadmap.
 
 ### Redis Integration
 Eventually, results will be storable not only in a file in the run folder,
-but also in a [potentially remote] redis server.
+but also in a [potentially remote] Redis server.
 This would guarantee better querying of relevant statistics, as well as more
 robust concurrency. The syntax for this will be:
 
      using("redis:hostname")
 
-This functionality is not yet implemented, but is documented here as a roadmap.
-
-### Properties File
-Often, a configuration already exists in a properties file.
-This will be able to be loaded as a starting point for the program's arguments
-with the command:
-     
-     using("/properties/file")
-
-Note that the file must exist, and should not contain a trailing `/`.
 This functionality is not yet implemented, but is documented here as a roadmap.
 
 Parallelism
@@ -224,7 +237,7 @@ Note that these are more likely to be bug-prone; but, also more likely to
 be cool!
 
 ### Lazy Function
-A rare, but neat feature of the program is the ability to use laxy functions
+A rare, but neat feature of the program is the ability to use lazy functions
 as arguments.
 For example, the following program will actually print a different value after
 each invocation:
@@ -256,7 +269,7 @@ For example, the example from lazy functions could be simplified to:
 Query Results
 -------------
 Of course, managing experiments would not be particularly useful if there
-weren't an easy way to retreive and analyze these results.
+weren't an easy way to retrieve and analyze these results.
 Qry provides a simple command-line interface for browsing results; this is
 particularly useful when a large number of jobs are started and need to be
 digested.
@@ -272,7 +285,7 @@ However, by default, a small SQL-like domain specific language is loaded.
 Like SQL, the fundamental operations you can perform are `projection` and
 `selection`. Projection allows you to display only a subset of the keys for
 inputs and results; selection allows you to select a subset of the runs, based
-on certain critera.
+on certain criteria.
 
 For example, the following will display only `key1` and `key2` where
 `accuracy` is greater than 0.7:
