@@ -297,5 +297,5 @@ object Plugins {
     }
   }
   
-  def havePBS:Boolean = usingPBS && """showq""".! == 0
+  def havePBS:Boolean = Qry.usingPBS && """showq""".! == 0
 }
