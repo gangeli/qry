@@ -18,10 +18,10 @@ object PBS {
   /** Create the resources string for the qsub command */
   private def resources(bashCmd:String):String = {
     val MEMORY_REGEX = """.*\s--?X?mx([0-9]+..)\s.*""".r
-    val mem:String = bashCmd match {
-      case MEMORY_REGEX(x) => x
-      case _ => memory
-    }
+    val mem:String = normalizeMemory( bashCmd match {
+        case MEMORY_REGEX(x) => x
+        case _ => memory
+      })
     "mem=" + mem + ",ncpus=" + cores + ",nodes=1"
   }
 
@@ -66,8 +66,8 @@ object PBS {
         // Not rerunnable
         "-r", "n",
         // stderr and stdout
-        "-o", logDir + "/stdout_pbs.log",
-        "-e", logDir + "/stderr_pbs.log",
+        "-o", logDir + "/_stdout_pbs.log",
+        "-e", logDir + "/_stderr_pbs.log",
         // command
         pbsScript.getPath
       )
@@ -75,15 +75,49 @@ object PBS {
     Some(job.!)
   }
 
+  /**
+   *  We would like to rate limit the number of jobs we are submittimg, so
+   *  we only allow up to numThreads jobs on the cluster. This function waits
+   *  for a machine to free up so that the job can start
+   */
   private def waitOnFreeMachine:Unit = {
     while (true) {  
-      val lines = (List("qstat", "-a") #|
-                   List("grep", System.getProperty("user.name"))).!!.split("\n")
-      if (lines.length < Qry.threadPoolSize) { return }
+      val jobs:Seq[String] = List("qstat", "-a").!!.split("\n")
+      val myJobCount = jobs.filter( _.contains(System.getProperty("user.name")) ).length
+      if (myJobCount < Qry.threadPoolSize) { return }
       Thread.sleep(10000)
     }
   }
 
+  /**
+   *  PBS is more stringent than java in recognizing memory usages.
+   *  Thus, normalize the memory usage parameter.
+   */
+  private def normalizeMemory(raw:String):String = {
+    val MEMORY_PARTS = """([0-9]+)\.?([0-9]*)(k|K|m|M|g|G)(b|B)?""".r
+    raw match {
+      case MEMORY_PARTS(whole, frac, prefix, theLetterBOrNull) =>
+        var num:Int = whole.toInt;
+        var fraction:String = frac
+        var order:String = prefix.toLowerCase
+        while (fraction != "") {
+          var toAdd:String = fraction.substring(0, math.min(fraction.length, 3))
+          toAdd = toAdd + ("0" * (3 - toAdd.length))
+          num = num * 1000 + toAdd.toInt
+          fraction = fraction.substring(math.min(3, fraction.length))
+          order = order match {
+            case "" => Qry.err("memory specificiation is finer than a byte: " + raw); ""
+            case "k" => ""
+            case "m" => "k"
+            case "g" => "m"
+          }
+        }
+        num + order.toLowerCase
+      case _ => raw
+    }
+  }
+
+  /** The header of the script to run the PBS job with. The command goes between the header and footer. */
   private val header = """
 set -x
 
@@ -128,7 +162,8 @@ echo `date +"%a %b %d %k:%M:%S %Y"`: Started on ${HOSTNAME} in ${PBS_O_QUEUE} qu
 # actually run the command
 ( """
 
-  private val footer = """ > "$LOG_DIR/stdout.log" 2> "$LOG_DIR/stderr.log" )
+  /** The footer of the script to run the PBS job with. The command goes between the header and footer. */
+  private val footer = """ > "$LOG_DIR/_stdout.log" 2> "$LOG_DIR/_stderr.log" )
 
 echo `date +"%a %b %d %k:%M:%S %Y"`: Completed on ${HOSTNAME} >> '%(qsub_log)s'
 

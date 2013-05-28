@@ -225,7 +225,7 @@ object Qry {
   //
   /** Create a job directly from a string */
   implicit def string2job(cmd:String):Job
-    = new Job(Process(cmd), true, None, cmd, Task.ensureRunDir.map( _.getPath ))
+    = new Job(Process(cmd), true, None, (rerun:Boolean) => cmd, Task.ensureRunDir.map( _.getPath ))
   /** Create a job directly from a list of program name + arguments */
   implicit def list2job(cmd:List[String]):Job
     = new Job(Process(cmd), true, None,
@@ -297,5 +297,7 @@ object Plugins {
     }
   }
   
-  def havePBS:Boolean = Qry.usingPBS && """showq""".! == 0
+  def havePBS:Boolean = {
+    Qry.usingPBS && """showq""".!(ProcessLogger( (str:String) => 42 )) == 0
+  }
 }

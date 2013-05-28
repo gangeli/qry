@@ -56,7 +56,7 @@ object Job {
 *   A concrete job to be run.
 */
 case class Job(proc:ProcessBuilder, var isQueued:Boolean,
-               var status:Option[Int], bashCmd:String, execDir:Option[String]) {
+               var status:Option[Int], bashCmd:Boolean=>String, execDir:Option[String]) {
   import Job._
   
   /**
@@ -104,12 +104,12 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
                 "mkdir -p " + runDir + "/_rerun" +
                 "\n" +
                 "# Run Program\n" +
-                bashCmd)
+                bashCmd(true))
             case None =>
           }
           // Run the program
           status = if (Plugins.havePBS) {
-            PBS.run(bashCmd, execDir)
+            PBS.run(bashCmd(false), execDir)
           } else {
             Some(proc !< ProcessLogger(
               {(out:String) => 
