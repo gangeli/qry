@@ -49,6 +49,8 @@ object Qry {
   /** Properties to prepend to every run */
   val staticProperties:Properties = new Properties
 
+  var usingPBS = false
+
   //
   // Using keyword
   //
@@ -99,11 +101,22 @@ object Qry {
     return false
   }
 
+  def pbs(spec:String, force:Boolean = true):Boolean = {
+    if (spec.equalsIgnoreCase("pbs") || spec.equalsIgnoreCase("qsub") ||
+        spec.equalsIgnoreCase("nlpsub")) {
+      usingPBS = true
+      true
+    } else {
+      false
+    }
+  }
+
   def using(spec:String):Unit = {
     val success = redis(spec, false) ||
                   remote(spec, false) ||
                   input(spec, false) ||
-                  execdir(spec, false)
+                  execdir(spec, false) ||
+                  pbs(spec, false)
     if (!success) {
       var user = System.getenv("USER")
       if (user == null) user = "[user]"
@@ -284,5 +297,5 @@ object Plugins {
     }
   }
   
-  def havePBS:Boolean = """showq""".! == 0
+  def havePBS:Boolean = usingPBS && """showq""".! == 0
 }

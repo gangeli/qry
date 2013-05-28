@@ -193,6 +193,23 @@ Note that you'd like it to be appended at a specific point, the first
 portion should be specified as a list of arguments -- for example, by
 calling `.toList` on the first group of arguments.
 
+### PBS Integration
+Jobs can be run over PBS by specifying the option:
+
+    using("pbs")
+
+Options for the PBS job (arguments to qsub) can be epscified by setting one
+or more of:
+
+    PBS.name:String
+    PBS.queue:String
+    PBS.priority:String
+    pbs.memory:String
+    pbs.cores:Int
+
+Note that memory is autdetected from java processes; also, the Priority and Queue
+objects have some common preset priority and queue values.
+
 ### Remote Execution
 Eventually, the capability of running jobs on remote hosts will be added.
 The syntax for this will be:
