@@ -108,18 +108,22 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
             case None =>
           }
           // Run the program
-          status = Some(proc !< ProcessLogger(
-            {(out:String) => 
-              import ResultRegex._
-              out match {
-                case ExplicitResult(key, value) => results(key.trim) = value.trim
-                case ImplicitResultNumeric(key, value) => results(key.trim) = value.trim
-                case _ => 
-              }
-              println(out)
-            },
-            { (err:String) => System.err.println(err) }
-          ))
+          status = if (Plugins.havePBS) {
+            PBS.run(bashCmd, execDir)
+          } else {
+            Some(proc !< ProcessLogger(
+              {(out:String) => 
+                import ResultRegex._
+                out match {
+                  case ExplicitResult(key, value) => results(key.trim) = value.trim
+                  case ImplicitResultNumeric(key, value) => results(key.trim) = value.trim
+                  case _ => 
+                }
+                println(out)
+              },
+              { (err:String) => System.err.println(err) }
+            ))
+          }
           // Write info
           execDir match {
             case Some(runDir) =>

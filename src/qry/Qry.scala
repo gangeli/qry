@@ -283,4 +283,6 @@ object Plugins {
       case (e:ClassNotFoundException) => false
     }
   }
+  
+  def havePBS:Boolean = """showq""".! == 0
 }
