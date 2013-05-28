@@ -16,7 +16,7 @@ PLUGINS_CP=plugin_lib/typesafe-config-1.0.0.jar
 
 default: ${DIST}/${NAME}.jar
 
-${DIST}/qry_unbundled.jar: $(wildcard ${SRC}/qry/*.scala) Makefile
+${DIST}/${NAME}_unbundled.jar: $(wildcard ${SRC}/qry/*.scala) Makefile
 	@echo "--------------------------------------------------------------------------------"
 	@echo "                          BUILDING Qry.jar"
 	@echo "--------------------------------------------------------------------------------"
@@ -27,13 +27,14 @@ ${DIST}/qry_unbundled.jar: $(wildcard ${SRC}/qry/*.scala) Makefile
 	#(jar)
 	jar cfm ${DIST}/${NAME}.jar ${SRC}/Manifest -C $(BUILD) .
 	jar uf ${DIST}/${NAME}.jar -C $(SRC) .
-	cp ${DIST}/${NAME}.jar ${DIST}/${NAME}_unbundled.jar
+	mv ${DIST}/${NAME}.jar ${DIST}/${NAME}_unbundled.jar
 
 # -- BUILD --
 ${DIST}/${NAME}.jar: ${DIST}/qry_unbundled.jar ${SRC}/Manifest
 	@echo "--------------------------------------------------------------------------------"
 	@echo "                          BUNDLING Qry.jar"
 	@echo "--------------------------------------------------------------------------------"
+	cp ${DIST}/${NAME}_unbundled.jar ${DIST}/${NAME}.jar
   #(dependencies)
 	mkdir -p ${TMP}
   #((scala-library))

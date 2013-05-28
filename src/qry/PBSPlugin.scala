@@ -56,7 +56,7 @@ object PBS {
         // resources
         "-l", resources(bashCmd),
         // job name
-        "-N", name + "@" + execDir.getOrElse("???"),
+        "-N", name + execDir.map( (path:String) => "@" + path.substring(math.max(0, path.lastIndexOf("/")), path.length) ).getOrElse(""),
         // job queue
         "-q", queue,
         // set the QoS
@@ -81,7 +81,7 @@ object PBS {
    *  for a machine to free up so that the job can start
    */
   private def waitOnFreeMachine:Unit = {
-    while (true) {  
+    while (Qry.threadPoolSize > 1) {  
       val jobs:Seq[String] = List("qstat", "-a").!!.split("\n")
       val myJobCount = jobs.filter( _.contains(System.getProperty("user.name")) ).length
       if (myJobCount < Qry.threadPoolSize) { return }
@@ -103,7 +103,7 @@ object PBS {
         while (fraction != "") {
           var toAdd:String = fraction.substring(0, math.min(fraction.length, 3))
           toAdd = toAdd + ("0" * (3 - toAdd.length))
-          num = num * 1000 + toAdd.toInt
+          num = (num * 1000) + (toAdd.toDouble * 1024 / 1000).toInt
           fraction = fraction.substring(math.min(3, fraction.length))
           order = order match {
             case "" => Qry.err("memory specificiation is finer than a byte: " + raw); ""
@@ -157,7 +157,7 @@ while [ $sleep_counter -lt 20 ] && [ ! -d "$LOG_DIR" ]; do
 done
 
 cd "$WD"
-echo `date +"%a %b %d %k:%M:%S %Y"`: Started on ${HOSTNAME} in ${PBS_O_QUEUE} queue. >> "$LOG_DIR/qsub.log"
+echo `date +"%a %b %d %k:%M:%S %Y"`: Started on ${HOSTNAME} in ${PBS_O_QUEUE} queue. >> "$LOG_DIR/_qsub.log"
 
 # actually run the command
 ( """

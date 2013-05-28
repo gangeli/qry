@@ -25,7 +25,7 @@ object Qry {
   /** Set the size of the thread (process) pool. */
   def parallel(threadCount:Int
       ):{def submit(t:Task); def submit(t:Iterator[Task])} = {
-    executor = Executors.newFixedThreadPool(threadCount)
+    executor = Executors.newFixedThreadPool(if (usingPBS) 1 else  threadCount)
     threadPoolSize = threadCount
     new {
       def submit(t:Task):Unit = Qry.submit(t)
@@ -295,9 +295,5 @@ object Plugins {
     } catch {
       case (e:ClassNotFoundException) => false
     }
-  }
-  
-  def havePBS:Boolean = {
-    Qry.usingPBS && """showq""".!(ProcessLogger( (str:String) => 42 )) == 0
   }
 }

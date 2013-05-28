@@ -108,7 +108,7 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
             case None =>
           }
           // Run the program
-          status = if (Plugins.havePBS) {
+          status = if (Qry.usingPBS) {
             PBS.run(bashCmd(false), execDir)
           } else {
             Some(proc !< ProcessLogger(
