@@ -25,7 +25,7 @@ object Qry {
   /** Set the size of the thread (process) pool. */
   def parallel(threadCount:Int
       ):{def submit(t:Task); def submit(t:Iterator[Task])} = {
-    executor = Executors.newFixedThreadPool(threadCount)
+    executor = Executors.newFixedThreadPool(if (usingPBS) 1 else  threadCount)
     threadPoolSize = threadCount
     new {
       def submit(t:Task):Unit = Qry.submit(t)
@@ -225,7 +225,7 @@ object Qry {
   //
   /** Create a job directly from a string */
   implicit def string2job(cmd:String):Job
-    = new Job(Process(cmd), true, None, cmd, Task.ensureRunDir.map( _.getPath ))
+    = new Job(Process(cmd), true, None, (rerun:Boolean) => cmd, Task.ensureRunDir.map( _.getPath ))
   /** Create a job directly from a list of program name + arguments */
   implicit def list2job(cmd:List[String]):Job
     = new Job(Process(cmd), true, None,
@@ -296,6 +296,4 @@ object Plugins {
       case (e:ClassNotFoundException) => false
     }
   }
-  
-  def havePBS:Boolean = Qry.usingPBS && """showq""".! == 0
 }

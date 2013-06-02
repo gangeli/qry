@@ -121,18 +121,21 @@ case class Task(program:List[String], argsRev:List[Argument],
   /** Cast this program as a single array of terms */
   def toArray:Array[String] = toList.toArray
 
-  /** Expand the processes to be created by this task */
-  private def processes:List[(ProcessBuilder,String,Option[String])] = {
+  /**
+   *  Expand the processes to be created by this task.
+   */
+  /* Here be dragons -- grok at your own risk */
+  private def processes:List[(ProcessBuilder,Boolean=>String,Option[String])] = {
     // Create a shell script from a list of arguments
-    def argsAsShell(args:List[String], runDir:Option[String]):String = {
+    def argsAsShell(args:List[String], runDir:Option[String]):Boolean=>String = {
       if (postProcessRev.length > 0) {
-        """echo "Qry cannot recreate piped processes""""
+        (rerun:Boolean) => """echo "Qry cannot recreate piped processes""""
       } else {
         Task.argsAsShell(args, runDir)
       }
     }
     // Get the jobs created by exploding this task's arguments
-    val procs:List[(ProcessBuilder, String, Option[String])]
+    val procs:List[(ProcessBuilder, Boolean=>String, Option[String])]
       = argsRev.foldLeft(ExpandedTask(Nil, Nil, Nil)){
         case (task:ExpandedTask, arg:Argument) => arg(task);
       }.instances.map{ (dynamicArgs:List[String]) =>
@@ -306,26 +309,30 @@ object Task {
     }
   }
 
-  def argsAsShell(args:Seq[String], runDir:Option[String]):String = {
-    val sh = new StringBuilder
-    // (program name)
-    sh.append("'").append(args.head).append("'\\\n\t")
-    // (arguments)
-    var lastDash = false
-    args.tail.foreach{ (uncleanArg:String) =>
-      val arg = uncleanArg.replaceAll("'", "\\'")
-                          .replaceAll("ℵexecdir_thunkℵ", runDir.getOrElse("/tmp/qry") + "/_rerun")
-      if (arg.startsWith(Qry.dash_value)) {
-        if (lastDash) sh.append("\\\n\t")
-        sh.append("'").append(arg).append("' ")
-        lastDash = true
-      } else {
-        sh.append("'").append(arg).append("'\\\n\t")
-        lastDash = false
+  def argsAsShell(args:Seq[String], runDir:Option[String]):Boolean=>String = {
+    (rerun:Boolean) => {
+      val sh = new StringBuilder
+      // (program name)
+      sh.append("'").append(args.head).append("'\\\n\t")
+      // (arguments)
+      var lastDash = false
+      args.tail.foreach{ (uncleanArg:String) =>
+        val arg = uncleanArg.replaceAll("'", "\\'")
+                            .replaceAll("ℵexecdir_thunkℵ",
+                                        runDir.getOrElse("/tmp/qry") +
+                                          {if (rerun) "/_rerun" else ""})
+        if (arg.startsWith(Qry.dash_value)) {
+          if (lastDash) sh.append("\\\n\t")
+          sh.append("'").append(arg).append("' ")
+          lastDash = true
+        } else {
+          sh.append("'").append(arg).append("'\\\n\t")
+          lastDash = false
+        }
       }
+      // (return)
+      sh.substring(0, sh.lastIndexOf('\\'))
     }
-    // (return)
-    sh.substring(0, sh.lastIndexOf('\\'))
   }
 
   def propertiesToArgs(props:Properties):List[String] = {
