@@ -17,9 +17,9 @@ object PBS {
 
   /** Create the resources string for the qsub command */
   private def resources(bashCmd:String):String = {
-    val MEMORY_REGEX = """.*\s--?X?mx([0-9]+..)\s.*""".r
+    val MEMORY_REGEX = """.*\s--?X?mx([0-9]+..)(\s|\\|\n).*""".r
     val mem:String = bashCmd match {
-      case MEMORY_REGEX(x) => x
+      case MEMORY_REGEX(x, separator) => x
       case _ => memory
     }
     "mem=" + mem + ",ncpus=" + cores + ",nodes=1"

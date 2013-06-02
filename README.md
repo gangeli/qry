@@ -32,7 +32,7 @@ there's not much of it (arguably, this is all of it)!
 You can also start Qry as an interactive prompt, with all dependencies
 bundled, using:
 
-    java -jar qry.jar
+    java -jar qry-release.jar
 
 ### Hello World!
 On most Unix systems, there is a program entitled `hello` which prints Hello World to the screen.
@@ -145,8 +145,7 @@ The files saved in this directory are:
    This includes: (1) timing information; (2) environment information
    (host, folder, git revision, etc); and (3) key results scraped from the
    output stream (more later).
--  `_cmd.ser`: A serialized version of the process to be run. Note that this is
-   buggy still.
+-  `_rerun.ser`: A bash script which can be used to re-run this job.
 -  `_cmd.txt`: A text file with the list of arguments to pass to the program;
    each element of the list should be surrounded by spaces.
 
@@ -164,11 +163,11 @@ Lastly, note that you can retrieve this run directory with the `touch` function.
 For example, the following command will create a new file in the execution
 directory (confusingly, using the Unix touch program):
      
-     using("/path/to/dir/")
+     using("/path/to/rundir/")
      submit("touch" ->touch("filename_to_create.txt"))
      
      >> -- 1 job submitted
-     >> // touch /path/to/dir/filename_to_create.txt
+     >> // touch /path/to/rundir/filename_to_create.txt
 
 ### Properties File
 Often, a configuration already exists in a properties file and it is useful
