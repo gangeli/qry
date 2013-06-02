@@ -32,7 +32,7 @@ there's not much of it (arguably, this is all of it)!
 You can also start Qry as an interactive prompt, with all dependencies
 bundled, using:
 
-    java -jar qry-release.jar
+    java -jar qry.jar
 
 ### Hello World!
 On most Unix systems, there is a program entitled `hello` which prints Hello World to the screen.
