@@ -96,9 +96,9 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
                   case Some(sha) =>
                     "# Manage Git\n" +
                     """if [ `git rev-parse --verify HEAD` != """ +
-                       "\"" + gitRevision + "\"" + """ ]; then """ +
+                       "\"" + sha + "\"" + """ ]; then """ +
                        """echo "WARNING: Git revision has changed from """ +
-                       gitRevision + "\"" + """; fi""" + "\n"
+                       sha + "\"" + """; fi""" + "\n"
                   case None => ""
                 }} +
                 "mkdir -p " + runDir + "/_rerun" +
