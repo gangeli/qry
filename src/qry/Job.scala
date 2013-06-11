@@ -111,9 +111,9 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
           status = if (Qry.usingPBS) {
             PBS.run(bashCmd(false), execDir)
           } else {
+            import ResultRegex._
             Some(proc !< ProcessLogger(
               {(out:String) => 
-                import ResultRegex._
                 out match {
                   case ExplicitResult(key, value) => results(key.trim) = value.trim
                   case ImplicitResultNumeric(key, value) => results(key.trim) = value.trim
@@ -121,7 +121,14 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
                 }
                 println(out)
               },
-              { (err:String) => System.err.println(err) }
+              { (err:String) =>
+                err match {
+                  case ExplicitResult(key, value) => results(key.trim) = value.trim
+                  case ImplicitResultNumeric(key, value) => results(key.trim) = value.trim
+                  case _ => 
+                }
+                  System.err.println(err)
+              }
             ))
           }
           // Write info
