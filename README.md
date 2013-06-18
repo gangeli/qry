@@ -145,9 +145,8 @@ The files saved in this directory are:
    This includes: (1) timing information; (2) environment information
    (host, folder, git revision, etc); and (3) key results scraped from the
    output stream (more later).
--  `_rerun.ser`: A bash script which can be used to re-run this job.
--  `_cmd.txt`: A text file with the list of arguments to pass to the program;
-   each element of the list should be surrounded by spaces.
+-  `_rerun.sh`: A bash script which can be used to re-run this job, in a newly
+   created nested rerun folder.
 
 As mentioned above, one of the key elements in `_qry.json` in this folder are
 results scraped from the running program.
