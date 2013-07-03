@@ -196,7 +196,7 @@ Jobs can be run over PBS by specifying the option:
 
     using("pbs")
 
-Options for the PBS job (arguments to qsub) can be epscified by setting one
+Options for the PBS job (arguments to qsub) can be specified by setting one
 or more of:
 
     PBS.name:String
@@ -245,6 +245,14 @@ If we would like to use a fixed number of cores, they can be specified as
 follows:
      
      parallel(number_of_cores) submit("hello")
+
+When used in conjunction with PBS integration, the number of cores denote the
+maximum number of PBS jobs to run at any given time.
+For example, you could start 100 PBS jobs, but ensure that rather than
+getting loaded at once only 10 are on the queue at any time, with:
+
+     using("pbs")
+     parallel(10) submit( ('echo ->"This is a PBS job!") * 100 )
 
 Advanced Features
 -------------
