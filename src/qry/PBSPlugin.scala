@@ -28,13 +28,17 @@ object PBS {
   def run(bashCmd:String, execDir:Option[String]):Option[Int] = {
     // Wait for free machine
     waitOnFreeMachine
+    for (dir <- execDir) { while (!new File(dir).exists) { Thread.sleep(1000); } }
     // Create script file
     val pbsScript:File = execDir.map{ (dir:String) => new File(dir + "/_pbs.bash") }
         .getOrElse( File.createTempFile("pbs", ".bash") )
     if (!pbsScript.exists) {
       pbsScript.createNewFile
     }
-    val logDir:String = execDir.getOrElse( File.createTempFile("pbs_log", ".dir").getPath )
+    val logDir:String = execDir.getOrElse( {
+      val tmpDir = File.createTempFile("pbs_log", ".dir")
+      tmpDir.delete; tmpDir.mkdir; tmpDir.getPath
+    } )
     // Write script file
     val writer = new PrintWriter(pbsScript)
     try {

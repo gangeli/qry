@@ -72,8 +72,8 @@ object Qry {
 
   def execdir(spec:String, force:Boolean = true):Boolean = {
     val root = new File(spec)
-    if (!force &&
-        (!spec.endsWith("/") || !root.canRead() || !root.isDirectory)) {
+    if (!(force || spec.endsWith("/")) &&
+        (!root.canRead() || !root.isDirectory)) {
       return false
     }
     // Create and error check root execdir directory
