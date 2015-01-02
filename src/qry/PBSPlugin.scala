@@ -7,7 +7,7 @@ object PBS {
   /** The name of the PBS job */
   var name:String = "(no name)"
   /** The queue to put the PBS job on (default Queue.VERYLONG) */
-  var queue:String = Queue.VERYLONG
+  var queue:String = Queue.NLP
   /** The priority to rub PBS job on (default Priority.NORMAL) */
   var priority:String = Priority.NORMAL
   /** The memory to allocate for the job, if it's not autodetected (default 2gb)*/
@@ -22,7 +22,7 @@ object PBS {
       case MEMORY_REGEX(x, separator) => x
       case _ => memory
     }
-    "mem=" + mem + ",ncpus=" + cores + ",nodes=1"
+    "mem=" + mem + ",ppn=" + cores + ",nodes=1"
   }
 
   def run(bashCmd:String, execDir:Option[String]):Option[Int] = {
@@ -185,7 +185,8 @@ object Priority {
 }
 
 object Queue {
-  val SHORT = "short"
-  val LONG = "long"
-  val VERYLONG = "verylong"
+  val SCAIL = "scail"
+  val NLP = "nlp"
+  val JAG = "jag"
+  val JOHN = "john"
 }

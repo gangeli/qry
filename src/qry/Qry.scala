@@ -143,18 +143,14 @@ object Qry {
   */
   def submit(task:Task,
              whenDone:()=>Unit = { () => },
-             shutdown:Boolean = true):Unit = {
+             shutdownAtEnd:Boolean = true):Unit = {
     beginLock.acquire
     val jobs:List[Job] = task.jobs
     jobs.foreach{ _.queue(false, whenDone) }
     println("-- " + jobs.length + " job" + {if(jobs.length > 1) "s" else ""} +
       " submitted")
     beginLock.release
-    if (shutdown) {
-      executor.shutdown
-      executor.awaitTermination(42000, java.util.concurrent.TimeUnit.DAYS)
-      executor = Executors.newFixedThreadPool(threadPoolSize)
-    }
+    if (shutdownAtEnd) { shutdown }
   }
   
   /** Submit a task a number of times for running.
@@ -178,10 +174,35 @@ object Qry {
       }.run
     }
     // -- Await termination
+    shutdown
+  }
+  
+  /** Start a set of task, but abandon it to the wind as an asynchronous task */
+  def async(tasks:Iterator[Task]):Unit = {
+    new Thread() {
+      override def run:Unit = {
+        submit(tasks)
+      }
+    }.start
+  }
+  
+  /** Start a task, but abandon it to the wind as an asynchronous task */
+  def async(task:Task,
+            whenDone:()=>Unit = { () => },
+            shutdown:Boolean = false):Unit = {
+    new Thread() {
+      override def run:Unit = {
+        submit(task, whenDone, shutdown)
+      }
+    }.start
+  }
+
+  def shutdown:Unit = {
     executor.shutdown
     executor.awaitTermination(42000, java.util.concurrent.TimeUnit.DAYS)
     executor = Executors.newFixedThreadPool(threadPoolSize)
   }
+  
   
   /** Explain what Qry would do for a given task, printing out the results.
   *   This is useful for, e.g., debugging how many runs will be started
