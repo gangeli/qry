@@ -39,20 +39,6 @@ object PBS {
       val tmpDir = File.createTempFile("pbs_log", ".dir")
       tmpDir.delete; tmpDir.mkdir; tmpDir.getPath
     } )
-    // Write script file
-    val writer = new PrintWriter(pbsScript)
-    try {
-      writer.write("#!/bin/bash\n")
-      writer.write("WD=" + System.getProperty("user.dir") + "\n")
-      writer.write("LOG_DIR=" + logDir + "\n")
-      writer.write(header)
-      writer.write(bashCmd)
-      writer.write(footer)
-    } catch {
-      case (e:IOException) => throw new RuntimeException(e)
-    } finally {
-      writer.close
-    }
     // Create qsub command
     val job = List[String]( "qsub",
         // working directory
@@ -60,7 +46,7 @@ object PBS {
         // resources
         "-l", resources(bashCmd),
         // job name
-        "-N", name + execDir.map( (path:String) => "@" + path.substring(math.max(0, path.lastIndexOf("/")), path.length) ).getOrElse(""),
+        "-N", name + execDir.map( (path:String) => "@" + path.substring(path.lastIndexOf("/") + 1) ).getOrElse(""),
         // job queue
         "-q", queue,
         // set the QoS
@@ -75,6 +61,24 @@ object PBS {
         // command
         pbsScript.getPath
       )
+    // Write script file
+    val writer = new PrintWriter(pbsScript)
+    try {
+      writer.write("#!/bin/bash\n")
+      writer.write("#\n")
+      writer.write("# qsub command:\n")
+      writer.write("# " + job.map( x => "'" + x.toString + "'").mkString(" ") + "\n")
+      writer.write("#\n")
+      writer.write("WD=" + System.getProperty("user.dir") + "\n")
+      writer.write("LOG_DIR=" + logDir + "\n")
+      writer.write(header)
+      writer.write(bashCmd)
+      writer.write(footer)
+    } catch {
+      case (e:IOException) => throw new RuntimeException(e)
+    } finally {
+      writer.close
+    }
     // Run and return
     Some(job.!)
   }
