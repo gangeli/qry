@@ -5,7 +5,7 @@ import java.io._
 
 object PBS {
   /** The name of the PBS job */
-  var name:String = "(no name)"
+  var name:String = "unnamed_job"
   /** The queue to put the PBS job on (default Queue.VERYLONG) */
   var queue:String = Queue.NLP
   /** The priority to rub PBS job on (default Priority.NORMAL) */
@@ -173,9 +173,16 @@ echo `date +"%a %b %d %k:%M:%S %Y"`: Completed on ${HOSTNAME} >> "$LOG_DIR/_pbs.
 
 # cleanup the temp files we made -- this should really be done in the epilog
 # if we ever figure out how to get PBS to run them
-if [[ $TMP == /tmp/* ]]; then  # rm -rf is very dangerous; make sure this is a tmp dir
-  rm -rf $TMP
-fi
+# note[gabor]: I think PBS now cleans up after itself
+#if [[ $TMP == /tmp/* ]]; then  # rm is very dangerous; make sure this is a tmp dir
+#  ls "$TMP" | egrep '^sys/?$' > /dev/null
+#  if [ "$?" == "0" ]; then
+#    echo "Trying to remove directory with sys/ in it. This sounds dangerous...";
+#  else
+#    rm "$TMP"/*
+#    rmdir "$TMP"
+#  fi
+#fi
 """
 }
 
