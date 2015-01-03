@@ -4,42 +4,18 @@ exec /u/nlp/packages/scala/scala-2.11.0/bin/scala -cp /u/nlp/packages/qry/lib/qr
 import Qry._  // Qry Core
 import Stanford._  // Utilities for Stanford
 
-/* Run dir */
-//using("/path/to/directory")
-
-/* PBS */
+//using("/path/to/run/directory")
 //using("pbs")
-PBS.name     = main.substring(main.lastIndexOf(".") + 1).replace(" ", "_")
-PBS.queue    = Queue.NLP  // {SCAIL, NLP, JAG, JOHN}; or you can set it as a string with `PBS.queue = "nlp"`
-PBS.priority = Priority.NORMAL  // {HIGH, NORMAL, BACKGROUND, PREEMPTABLE }
-PBS.cores    = 1
-PBS.memory   = memory  // For Java jobs, memory is also auto detected
+//using(getConfigOr(args, "/path/to/typesafe/config.conf"))  // tries to guess the config path from the command line arguments too
 
-/* Java */
-val java:List[String] = ("java"
-  -('cp, List(cp, JAVANLP, JAVANLP_LIBS).mkString(":"))
-	-("Xmx" + memory.replaceAll("b$",""))
-	-"Xss16m"
-  -"XX:MaxPermSize=64M"
-	-'server
-  -'ea
-  ->guessClassOrElse(args, main)).toList  // Tries to guess the main class from the command line arguments too
-
-/* Typesafe Config */
-//using(getConfigOr(args, "/path/to/typefafe/config.conf"))  // tries to guess the config path from the command line arguments too
-
-/* Configure Java */
-def memory = "2gb"  // The memory for your Java job
-def main = "edu.stanford.nlp.pipeline.StanfordCoreNLP"  // The Java main class
-def cp = ""  // Additional (non-JavaNLP) classpath for your run
-
-/* Parallelism */
+/* Runs:
+ *   ping -c 1 google.com
+ *   ping -c 5 google.com
+ *   ping -c 1 yahoo.com
+ * To run all 4 options, use "&" instead of "|"
+ */
 //parallel(<# cores>)
-
-/* Program */
-submit(java
-  -("log.file", touch("redwood.log"))
+submit("ping"
+  -("c", "1" | "5")
+  ->("google.com" | "yahoo.com")
 )
-
-
-
