@@ -5,7 +5,7 @@ import java.io._
 
 object PBS {
   /** The name of the PBS job */
-  var name:String = "unnamed_job"
+  var name:String = ""
   /** The queue to put the PBS job on (default Queue.VERYLONG) */
   var queue:String = Queue.NLP
   /** The priority to rub PBS job on (default Priority.NORMAL) */
@@ -14,15 +14,34 @@ object PBS {
   var memory:String = "2gb"
   /** The cores to allocate for the job (default 1) */
   var cores:Int = 1
-
-  /** Create the resources string for the qsub command */
-  private def resources(bashCmd:String):String = {
+  
+  /** Scrape just the memory from the bash command*/
+  private def detectMemory(bashCmd:String):String = {
     val MEMORY_REGEX = """.*\s--?X?mx([0-9]+..)(\s|\\|\n).*""".r
-    val mem:String = bashCmd match {
+    bashCmd match {
       case MEMORY_REGEX(x, separator) => x
       case _ => memory
     }
-    "mem=" + mem + ":nodes=1:" + "cores=" + cores
+  }
+
+  /** Create the resources string for the qsub command */
+  private def resources(bashCmd:String):String = {
+    "mem=" + detectMemory(bashCmd) + ":nodes=1:" + "cores=" + cores
+  }
+
+  /** Copy over only specific environment variables */
+  private def mkEnv(bashCmd:String):String = {
+    def clean(s:String):String = s.replace(""""""", """\"""" )
+    ( sys.env.filter{ case (key, value) => 
+         key.toLowerCase != "krb5ccname"  &&
+         key.toLowerCase != "ls_colors"  &&
+         key.toLowerCase != "lscolors"  &&
+         !key.toLowerCase.startsWith("ssh_") &&
+         !value.contains(" ")  // TODO(gabor) prohibiting vars with spaces is a bit awkward
+        } +
+      ("PBS_MEMORY" -> detectMemory(bashCmd)) )
+          .map{ case (key, value) => clean(key) + "=\"" + clean(value) + "\"" }
+          .mkString(",")
   }
 
   def run(bashCmd:String, execDir:Option[String]):Option[Int] = {
@@ -40,7 +59,9 @@ object PBS {
       tmpDir.delete; tmpDir.mkdir; tmpDir.getPath
     } )
     // Create qsub command
-    val job = List[String]( "qsub",
+    def job(passVariables:Boolean) = List[String]( 
+        // the program (qsub)
+        "qsub",
         // working directory
         "-d", System.getProperty("user.dir"),
         // resources
@@ -48,11 +69,9 @@ object PBS {
         // job name
         "-N", name + execDir.map( (path:String) => "@" + path.substring(path.lastIndexOf("/") + 1) ).getOrElse(""),
         // job queue
-        "-q", queue,
-        // set the QoS
-        "-W",
+        "-q", queue
         // pass along environment variables
-        "-V",
+        ) ::: { if (passVariables) List[String]("-v", mkEnv(bashCmd)) else Nil } ::: List[String](
         // Not rerunnable
         "-r", "n",
         // stderr and stdout
@@ -66,8 +85,8 @@ object PBS {
     try {
       writer.write("#!/bin/bash\n")
       writer.write("#\n")
-      writer.write("# qsub command:\n")
-      writer.write("# " + job.map( x => "'" + x.toString + "'").mkString(" ") + "\n")
+      writer.write("# qsub command (without passing environment variables):\n")
+      writer.write("# " + job(false).map( x => x.toString).mkString(" ") + "\n")
       writer.write("#\n")
       writer.write("WD=" + System.getProperty("user.dir") + "\n")
       writer.write("LOG_DIR=" + logDir + "\n")
@@ -80,7 +99,7 @@ object PBS {
       writer.close
     }
     // Run and return
-    Some(job.!)
+    Some(job(true).!)
   }
 
   /**
@@ -129,30 +148,9 @@ object PBS {
   private val header = """
 # set -x
 
-USERNAME=`whoami`
-HOSTNAME=`hostname | sed -r -e 's/\.[^\.]+\.(edu|com)//i'`
-JOBID=`echo $PBS_JOBID | sed -r -e 's/\..*\.(edu|com)//'`
-
-# setup of a bunch of environment variables that PBS jobs can use
-export TMP=/tmp/${USERNAME}/${JOBID}-pbs/
-export TEMP=$TMP
-export TEMPDIR=$TMP
-export TMPDIR=$TMP
-mkdir -p $TMP
-
-# don't source it if it (or similar things) have already been sourced
-if [ -z "$JAVA_HOME" ]; then
-  if [ -e /u/nlp/bin/setup.bash ]; then
-    source /u/nlp/bin/setup.bash
-  fi
-fi
-
-if [ -e $HOME/.profile ]; then
-  source $HOME/.profile
-fi
-if [ -e $HOME/.bashrc ]; then
-  source $HOME/.bashrc
-fi
+export USERNAME=`whoami`
+export HOSTNAME=`hostname | sed -r -e 's/\.[^\.]+\.(edu|com)//i'`
+export JOBID=`echo $PBS_JOBID | sed -r -e 's/\..*\.(edu|com)//'`
 
 # due to NFS sync issues, our log directory might not exist yet.
 # we'll sleep a little bit in hopes that it will appear soon
@@ -161,11 +159,26 @@ mkdir -p $LOG_DIR
 while [ $sleep_counter -lt 20 ] && [ ! -d "$LOG_DIR" ]; do
   echo "waiting on log directory..."
   let sleep_counter=sleep_counter+1
-  sleep 1
+  sleep $sleep_counter
 done
 
 cd "$WD"
 echo `date +"%a %b %d %k:%M:%S %Y"`: Started on ${HOSTNAME} in ${PBS_O_QUEUE} queue. >> "$LOG_DIR/_pbs.log"
+echo "" >> "$LOG_DIR/_pbs.log"
+echo "Working directory: $WD" >> "$LOG_DIR/_pbs.log"
+echo "Current directory: `pwd`" >> "$LOG_DIR/_pbs.log"
+echo "JAVA_HOME:         $JAVA_HOME" >> "$LOG_DIR/_pbs.log"
+echo "JAVANLP_HOME:      $JAVANLP_HOME" >> "$LOG_DIR/_pbs.log"
+echo "LD_LIBRARY_PATH:   $LD_LIBRARY_PATH" >> "$LOG_DIR/_pbs.log"
+echo "" >> "$LOG_DIR/_pbs.log"
+echo "Job id:            $PBS_JOBID" >> "$LOG_DIR/_pbs.log"
+echo "Job name:          $PBS_JOBNAME" >> "$LOG_DIR/_pbs.log"
+echo "Job num cores:     $PBS_NUM_PPN" >> "$LOG_DIR/_pbs.log"
+echo "Job memory:        $PBS_MEMORY" >> "$LOG_DIR/_pbs.log"
+echo "" >> "$LOG_DIR/_pbs.log"
+echo "$ env | grep PBS" >> "$LOG_DIR/_pbs.log"
+echo "`env | grep PBS`" >> "$LOG_DIR/_pbs.log"
+echo "" >> "$LOG_DIR/_pbs.log"
 
 # actually run the command
 ( """
@@ -174,19 +187,7 @@ echo `date +"%a %b %d %k:%M:%S %Y"`: Started on ${HOSTNAME} in ${PBS_O_QUEUE} qu
   private val footer = """ > "$LOG_DIR/_stdout.log" 2> "$LOG_DIR/_stderr.log" )
 
 echo `date +"%a %b %d %k:%M:%S %Y"`: Completed on ${HOSTNAME} >> "$LOG_DIR/_pbs.log"
-
-# cleanup the temp files we made -- this should really be done in the epilog
-# if we ever figure out how to get PBS to run them
-# note[gabor]: I think PBS now cleans up after itself
-#if [[ $TMP == /tmp/* ]]; then  # rm is very dangerous; make sure this is a tmp dir
-#  ls "$TMP" | egrep '^sys/?$' > /dev/null
-#  if [ "$?" == "0" ]; then
-#    echo "Trying to remove directory with sys/ in it. This sounds dangerous...";
-#  else
-#    rm "$TMP"/*
-#    rmdir "$TMP"
-#  fi
-#fi
+echo "" >> "$LOG_DIR/_pbs.log"
 """
 }
 

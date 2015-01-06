@@ -115,8 +115,8 @@ object Qry {
     val success = redis(spec, false) ||
                   remote(spec, false) ||
                   input(spec, false) ||
-                  execdir(spec, false) ||
-                  pbs(spec, false)
+                  pbs(spec, false) ||
+                  execdir(spec, false)
     if (!success) {
       var user = System.getenv("USER")
       if (user == null) user = "[user]"
