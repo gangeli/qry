@@ -289,6 +289,21 @@ For example, the example from lazy functions could be simplified to:
      >> 2
      >> 3
 
+### Power Sets
+In certain cases, you may want to set a parameter to the power set of a given
+set of options.
+For example, if you're doing feature selection, you may want to run a classifier
+with every combination of feature templates.
+A utility is included for this, conveniently named `powerset`:
+
+    submit("echo" ->powerset("foo", "bar", "baz"))
+    
+    >> -- 7 jobs submitted
+
+Note that the empty set is not included; and, that if your power set is larger
+than 1000 elements, the program will check to confirm that this is what was intended.
+Each set is denoted by a comma-separated list; e.g., "foo,bar,baz".
+
 Query Results
 -------------
 Of course, managing experiments would not be particularly useful if there
