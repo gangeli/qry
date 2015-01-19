@@ -219,6 +219,34 @@ object Qry {
     if (dash != "-")
       println("--   '" + dash + "' as as the argument prefix")
   }
+
+  //
+  // Utilities
+  //
+  def powerset(elems:String*):ArgumentValue = {
+    // recursive function
+    @annotation.tailrec
+    def pwr(s: List[String], acc: List[List[String]]): List[List[String]] = s match {
+      case Nil     => acc
+      case a :: as => pwr(as, acc ::: (acc map (a :: _)))
+    }
+    // call function
+    val ps:List[List[String]] = pwr(elems.toList, Nil :: Nil).filter( _.size > 0 )
+    // sanity check
+    if (ps.length > 1000) {
+      println("WARNING: the power set of " + elems.mkString(",") + " is very large!")
+      println("(" + ps.length + " options)")
+      print("Are you sure you want to continue (true/false)? ")
+      if (!scala.io.StdIn.readBoolean) {
+        System.exit(0)
+      }
+    }
+    // convert to options
+    ps.tail.foldLeft(ArgumentValue(ps.head.mkString(","))){
+      case (soFar:ArgumentValue, elem:List[String]) =>
+        soFar | elem.mkString(",")
+    };
+  }
   
   //
   // Internal Helpers
@@ -320,33 +348,5 @@ object Plugins {
       case (e:ClassNotFoundException) => false
     }
   }
-}
-
-//
-// Utilities
-//
-def powerset(elems:String*):ArgumentValue = {
-  // recursive function
-  @annotation.tailrec
-  def pwr(s: List[String], acc: List[List[String]]): List[List[String]] = s match {
-    case Nil     => acc
-    case a :: as => pwr(as, acc ::: (acc map (a :: _)))
-  }
-  // call function
-  val ps:List[List[String]] = pwr(elems.toList, Nil :: Nil).filter( _.size > 0 )
-  // sanity check
-  if (ps.length > 1000) {
-    println("WARNING: the power set of " + elems.mkString(",") + " is very large!")
-    println("(" + ps.length + " options)")
-    print("Are you sure you want to continue (true/false)? ")
-    if (!scala.io.StdIn.readBoolean) {
-      System.exit(0)
-    }
-  }
-  // convert to options
-  ps.tail.foldLeft(ArgumentValue(ps.head.mkString(","))){
-    case (soFar:ArgumentValue, elem:List[String]) =>
-      soFar | elem.mkString(",")
-  };
 }
 
