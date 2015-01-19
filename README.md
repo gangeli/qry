@@ -304,6 +304,11 @@ Note that the empty set is not included; and, that if your power set is larger
 than 1000 elements, the program will check to confirm that this is what was intended.
 Each set is denoted by a comma-separated list; e.g., "foo,bar,baz".
 
+Also note that by default, the powerset function has the semantics of
+joining all the arguments with `&`.
+For joining arguments with `|`, see `powersetOr` (for convenience, there
+is also a function `powersetAnd`).
+
 Query Results
 -------------
 Of course, managing experiments would not be particularly useful if there

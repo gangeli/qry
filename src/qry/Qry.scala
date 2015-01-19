@@ -220,10 +220,11 @@ object Qry {
       println("--   '" + dash + "' as as the argument prefix")
   }
 
+
   //
   // Utilities
   //
-  def powerset(elems:String*):ArgumentValue = {
+  private def computePowerSet(elems:Seq[String]):List[List[String]] = {
     // recursive function
     @annotation.tailrec
     def pwr(s: List[String], acc: List[List[String]]): List[List[String]] = s match {
@@ -241,12 +242,45 @@ object Qry {
         System.exit(0)
       }
     }
-    // convert to options
+    ps
+  }
+
+  /**
+   * Computes the power set of the given elements, chained
+   * together with '|'
+   */
+  def powersetOr(elems:String*):ArgumentValue = {
+    val ps = computePowerSet(elems)
     ps.tail.foldLeft(ArgumentValue(ps.head.mkString(","))){
       case (soFar:ArgumentValue, elem:List[String]) =>
         soFar | elem.mkString(",")
     };
   }
+  
+  /**
+   * Computes the power set of the given elements, chained
+   * together with '&'
+   */
+  def powersetAnd(elems:String*):ArgumentValue = {
+    val ps = computePowerSet(elems)
+    ps.tail.foldLeft(ArgumentValue(ps.head.mkString(","))){
+      case (soFar:ArgumentValue, elem:List[String]) =>
+        soFar & elem.mkString(",")
+    };
+  }
+  
+  /**
+   * Computes the power set of the given elements, chained
+   * together with '&'
+   */
+  def powerset(elems:String*):ArgumentValue = {
+    val ps = computePowerSet(elems)
+    ps.tail.foldLeft(ArgumentValue(ps.head.mkString(","))){
+      case (soFar:ArgumentValue, elem:List[String]) =>
+        soFar & elem.mkString(",")
+    };
+  }
+
   
   //
   // Internal Helpers
