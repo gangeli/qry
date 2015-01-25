@@ -26,7 +26,7 @@ object PBS {
 
   /** Create the resources string for the qsub command */
   private def resources(bashCmd:String):String = {
-    "mem=" + detectMemory(bashCmd) + ":nodes=1:" + "cores=" + cores
+    "mem=" + detectMemory(bashCmd) + ":nodes=1:" + "ppn=" + cores
   }
 
   /** Copy over only specific environment variables */
@@ -67,7 +67,7 @@ object PBS {
         // resources
         "-l", resources(bashCmd),
         // job name
-        "-N", name + execDir.map( (path:String) => "@" + path.substring(path.lastIndexOf("/") + 1) ).getOrElse(""),
+        "-N", name.replaceAll(" ","_") + execDir.map( (path:String) => "@" + path.substring(path.lastIndexOf("/") + 1) ).getOrElse(""),
         // job queue
         "-q", queue
         // pass along environment variables
