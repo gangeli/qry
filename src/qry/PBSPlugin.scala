@@ -25,8 +25,10 @@ object PBS {
   }
 
   /** Create the resources string for the qsub command */
-  private def resources(bashCmd:String):String = {
-    "mem=" + detectMemory(bashCmd) + ":nodes=1:" + "ppn=" + cores
+  private def resources(bashCmd:String):List[String] = {
+    List[String](
+      "-l", "mem=" + detectMemory(bashCmd),
+      "-l", "nodes=1:" + "ppn=" + cores)
   }
 
   /** Copy over only specific environment variables */
@@ -63,9 +65,9 @@ object PBS {
         // the program (qsub)
         "qsub",
         // working directory
-        "-d", System.getProperty("user.dir"),
+        "-d", System.getProperty("user.dir")) :::
         // resources
-        "-l", resources(bashCmd),
+        resources(bashCmd) ::: List[String](
         // job name
         "-N", name.replaceAll(" ","_") + execDir.map( (path:String) => "@" + path.substring(path.lastIndexOf("/") + 1) ).getOrElse(""),
         // job queue
