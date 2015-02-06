@@ -106,6 +106,9 @@ object Qry {
         spec.equalsIgnoreCase("nlpsub")) {
       usingPBS = true
       true
+    } else if (spec.equalsIgnoreCase("local") || spec.equalsIgnoreCase("nopbs")) {
+      usingPBS = false
+      true
     } else {
       false
     }

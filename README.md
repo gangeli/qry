@@ -202,8 +202,8 @@ or more of:
     PBS.name:String
     PBS.queue:String
     PBS.priority:String
-    pbs.memory:String
-    pbs.cores:Int
+    PBS.memory:String
+    PBS.cores:Int
 
 Note that memory is autdetected from java processes; also, the Priority and Queue
 objects have some common preset priority and queue values.
