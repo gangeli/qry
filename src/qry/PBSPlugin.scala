@@ -14,6 +14,8 @@ object PBS {
   var memory:String = "2gb"
   /** The cores to allocate for the job (default 1) */
   var cores:Int = 1
+  /** The cores to allocate for the job (default 1) */
+  var hosts:List[String] = List[String]()
   
   /** Scrape just the memory from the bash command*/
   private def detectMemory(bashCmd:String):String = {
@@ -75,7 +77,9 @@ object PBS {
         // pass along environment variables
         ) ::: { if (passVariables) List[String]("-v", mkEnv(bashCmd)) else Nil } ::: List[String](
         // Not rerunnable
-        "-r", "n",
+        "-r", "n"
+        // Hosts
+        ) ::: { if (hosts.isEmpty()) Nil else List[String]("-W", "x=\"HOSTLIST=" + hosts.mkString(",").replace(" ","") + "\"") } ::: List[String](
         // stderr and stdout
         "-o", logDir + "/_stdout_pbs.log",
         "-e", logDir + "/_stderr_pbs.log",

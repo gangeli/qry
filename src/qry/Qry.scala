@@ -344,6 +344,21 @@ object Qry {
   /** Create a File from a String filename */
   implicit def string2file(filename:String):File = new File(filename)
   
+  /** Create a List of Strings from a [preferably] comma separated string */
+  implicit def string2List(str:String):List[String] = {
+    if (str.charAt(0) == '[' && str.charAt(str.length - 1) == ']') {
+      str.substring(1, str.length - 1).split(",").toList
+    } else if (str.charAt(0) == '(' && str.charAt(str.length - 1) == ')') {
+      str.substring(1, str.length - 1).split(",").toList
+    } else if (str.contains(",")) {
+      str.split(",").toList
+    } else if (str.contains(" ")) {
+      str.split(" ").toList
+    } else {
+      str.split(",").toList
+    }
+  }
+  
   //
   // Queryable Command Line
   //
