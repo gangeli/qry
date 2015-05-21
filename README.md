@@ -309,6 +309,17 @@ joining all the arguments with `&`.
 For joining arguments with `|`, see `powersetOr` (for convenience, there
 is also a function `powersetAnd`).
 
+### Using other options flags
+There is a utility function `dash()` that returns the dash character used to
+specify options (`-` by default).
+This can also be changed with, for example,
+
+```scala
+dash("--")
+```
+
+to prepend each option with the `--` character (well, String).
+
 Query Results
 -------------
 Of course, managing experiments would not be particularly useful if there

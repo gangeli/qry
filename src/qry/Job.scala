@@ -160,11 +160,10 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
               }
               b.append("\n")
               // (results)
-              results.foreach{ case (key:String, value:String) =>
-                b.append("  ").append(json(key)).append(": ")
-                 .append(json(value)).append(",\n")
-              }
-              b.append("}")
+              results.map{ case (key:String, value:String) =>
+                "  " + json(key) + ": " + json(value) 
+              }.toArray.mkString(",\n")
+              b.append("\n}")
               write(runDir + "/_qry.json", b.toString)
             case None => // do nothing
           }
