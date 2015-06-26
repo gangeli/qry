@@ -157,7 +157,7 @@ while [ $sleep_counter -lt 20 ] && [ ! -d "$LOG_DIR" ]; do
 done
 
 cd "$WD"
-echo `date +"%a %b %d %k:%M:%S %Y"`: Started on ${HOSTNAME} in ${PBS_O_QUEUE} queue. >> "$LOG_DIR/_qsub.log"
+echo `date +"%a %b %d %k:%M:%S %Y"`: Started on $HOSTNAME. >> "$LOG_DIR/_qsub.log"
 
 # actually run the command
 ( """
@@ -165,7 +165,7 @@ echo `date +"%a %b %d %k:%M:%S %Y"`: Started on ${HOSTNAME} in ${PBS_O_QUEUE} qu
   /** The footer of the script to run the PBS job with. The command goes between the header and footer. */
   private val footer = """ > "$LOG_DIR/_stdout.log" 2> "$LOG_DIR/_stderr.log" )
 
-echo `date +"%a %b %d %k:%M:%S %Y"`: Completed on ${HOSTNAME} >> '%(qsub_log)s'
+echo `date +"%a %b %d %k:%M:%S %Y"`: Completed on $HOSTNAME >> '$LOG_DIR/_qsub.log'
 
 # cleanup the temp files we made -- this should really be done in the epilog
 # if we ever figure out how to get PBS to run them
