@@ -57,14 +57,13 @@ ${DIST}/${NAME}.jar: ${DIST}/qry_unbundled.jar ${SRC}/Manifest
 	rm -rf ${TMP}/scala-reflect
   #((jline))
 	rm -rf ${TMP}/jline
-	unzip ${SCALA_HOME}/lib/jline.jar -d ${TMP}/jline > /dev/null
+	unzip ${SCALA_HOME}/lib/jline-2.11.jar -d ${TMP}/jline > /dev/null
 	rm -r ${TMP}/jline/META-INF
 	jar uf ${DIST}/qry.jar -C ${TMP}/jline/ .
 	rm -rf ${TMP}/jline
-  #(plugins)
   #((typesafe))
 	rm -rf ${TMP}/typesafe
-	unzip plugin_lib/typesafe-config-1.0.0.jar -d ${TMP}/typesafe > /dev/null
+	unzip ${SCALA_HOME}/lib/config-1.2.0.jar -d ${TMP}/typesafe > /dev/null
 	rm -r ${TMP}/typesafe/META-INF
 	jar uf ${DIST}/qry.jar -C ${TMP}/typesafe/ .
 	rm -rf ${TMP}/typesafe
@@ -76,6 +75,7 @@ doc:
 
 clean:
 	rm -f ${DIST}/${NAME}.jar
+	rm -f ${DIST}/${NAME}_unbundled.jar
 	rmdir ${DIST} || [ ! -d ${DIST} ]
 	rm -rf ${BUILD}/*
 	rmdir ${BUILD} || [ ! -d ${BUILD} ]

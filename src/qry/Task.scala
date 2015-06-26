@@ -152,8 +152,9 @@ case class Task(program:List[String], argsRev:List[Argument],
     // For example, this includes the result of pipes.
     postProcessRev.foldRight(procs) {
           case (fn:(ProcessBuilder=>List[ProcessBuilder]),
-                procs:List[(ProcessBuilder,String,Option[String])]) =>
-      procs.map{ x => fn(x._1).map( (_, x._2, x._3) ) }.flatten
+                procs:List[(ProcessBuilder,Boolean=>String,Option[String])]) =>
+      procs.map{ (x:(ProcessBuilder,Boolean=>String,Option[String])) => 
+        fn(x._1).map( (_, x._2, x._3) ) }.flatten
     }
   }
 

@@ -72,8 +72,8 @@ object Qry {
 
   def execdir(spec:String, force:Boolean = true):Boolean = {
     val root = new File(spec)
-    if (!force &&
-        (!spec.endsWith("/") || !root.canRead() || !root.isDirectory)) {
+    if (!(force || spec.endsWith("/")) &&
+        (!root.canRead() || !root.isDirectory)) {
       return false
     }
     // Create and error check root execdir directory
@@ -106,6 +106,9 @@ object Qry {
         spec.equalsIgnoreCase("nlpsub")) {
       usingPBS = true
       true
+    } else if (spec.equalsIgnoreCase("local") || spec.equalsIgnoreCase("nopbs")) {
+      usingPBS = false
+      true
     } else {
       false
     }
@@ -115,8 +118,8 @@ object Qry {
     val success = redis(spec, false) ||
                   remote(spec, false) ||
                   input(spec, false) ||
-                  execdir(spec, false) ||
-                  pbs(spec, false)
+                  pbs(spec, false) ||
+                  execdir(spec, false)
     if (!success) {
       var user = System.getenv("USER")
       if (user == null) user = "[user]"
@@ -143,18 +146,14 @@ object Qry {
   */
   def submit(task:Task,
              whenDone:()=>Unit = { () => },
-             shutdown:Boolean = true):Unit = {
+             shutdownAtEnd:Boolean = true):Unit = {
     beginLock.acquire
     val jobs:List[Job] = task.jobs
     jobs.foreach{ _.queue(false, whenDone) }
     println("-- " + jobs.length + " job" + {if(jobs.length > 1) "s" else ""} +
       " submitted")
     beginLock.release
-    if (shutdown) {
-      executor.shutdown
-      executor.awaitTermination(42000, java.util.concurrent.TimeUnit.DAYS)
-      executor = Executors.newFixedThreadPool(threadPoolSize)
-    }
+    if (shutdownAtEnd) { shutdown }
   }
   
   /** Submit a task a number of times for running.
@@ -178,10 +177,35 @@ object Qry {
       }.run
     }
     // -- Await termination
+    shutdown
+  }
+  
+  /** Start a set of task, but abandon it to the wind as an asynchronous task */
+  def async(tasks:Iterator[Task]):Unit = {
+    new Thread() {
+      override def run:Unit = {
+        submit(tasks)
+      }
+    }.start
+  }
+  
+  /** Start a task, but abandon it to the wind as an asynchronous task */
+  def async(task:Task,
+            whenDone:()=>Unit = { () => },
+            shutdown:Boolean = false):Unit = {
+    new Thread() {
+      override def run:Unit = {
+        submit(task, whenDone, shutdown)
+      }
+    }.start
+  }
+
+  def shutdown:Unit = {
     executor.shutdown
     executor.awaitTermination(42000, java.util.concurrent.TimeUnit.DAYS)
     executor = Executors.newFixedThreadPool(threadPoolSize)
   }
+  
   
   /** Explain what Qry would do for a given task, printing out the results.
   *   This is useful for, e.g., debugging how many runs will be started
@@ -198,6 +222,68 @@ object Qry {
     if (dash != "-")
       println("--   '" + dash + "' as as the argument prefix")
   }
+
+
+  //
+  // Utilities
+  //
+  private def computePowerSet(elems:Seq[String]):List[List[String]] = {
+    // recursive function
+    @annotation.tailrec
+    def pwr(s: List[String], acc: List[List[String]]): List[List[String]] = s match {
+      case Nil     => acc
+      case a :: as => pwr(as, acc ::: (acc map (a :: _)))
+    }
+    // call function
+    val ps:List[List[String]] = pwr(elems.toList, Nil :: Nil).filter( _.size > 0 )
+    // sanity check
+    if (ps.length > 1000) {
+      println("WARNING: the power set of " + elems.mkString(",") + " is very large!")
+      println("(" + ps.length + " options)")
+      print("Are you sure you want to continue (true/false)? ")
+      if (!scala.io.StdIn.readBoolean) {
+        System.exit(0)
+      }
+    }
+    ps
+  }
+
+  /**
+   * Computes the power set of the given elements, chained
+   * together with '|'
+   */
+  def powersetOr(elems:String*):ArgumentValue = {
+    val ps = computePowerSet(elems)
+    ps.tail.foldLeft(ArgumentValue(ps.head.mkString(","))){
+      case (soFar:ArgumentValue, elem:List[String]) =>
+        soFar | elem.mkString(",")
+    };
+  }
+  
+  /**
+   * Computes the power set of the given elements, chained
+   * together with '&'
+   */
+  def powersetAnd(elems:String*):ArgumentValue = {
+    val ps = computePowerSet(elems)
+    ps.tail.foldLeft(ArgumentValue(ps.head.mkString(","))){
+      case (soFar:ArgumentValue, elem:List[String]) =>
+        soFar & elem.mkString(",")
+    };
+  }
+  
+  /**
+   * Computes the power set of the given elements, chained
+   * together with '&'
+   */
+  def powerset(elems:String*):ArgumentValue = {
+    val ps = computePowerSet(elems)
+    ps.tail.foldLeft(ArgumentValue(ps.head.mkString(","))){
+      case (soFar:ArgumentValue, elem:List[String]) =>
+        soFar & elem.mkString(",")
+    };
+  }
+
   
   //
   // Internal Helpers
@@ -226,6 +312,8 @@ object Qry {
   /** Create a job directly from a string */
   implicit def string2job(cmd:String):Job
     = new Job(Process(cmd), true, None, (rerun:Boolean) => cmd, Task.ensureRunDir.map( _.getPath ))
+  implicit def symbol2job(cmd:Symbol):Job
+    = new Job(Process(cmd.name), true, None, (rerun:Boolean) => cmd.name, Task.ensureRunDir.map( _.getPath ))
   /** Create a job directly from a list of program name + arguments */
   implicit def list2job(cmd:List[String]):Job
     = new Job(Process(cmd), true, None,
@@ -233,6 +321,7 @@ object Qry {
               Task.ensureRunDir.map( _.getPath ))
   /** Create a task directly */
   implicit def string2task(programName:String):Task = new Task(List(programName), Nil, Nil, None)
+  implicit def symbol2task(programName:Symbol):Task = new Task(List(programName.name), Nil, Nil, None)
   implicit def list2task(program:Iterable[String]):Task = new Task(program.toList, Nil, Nil, None)
   
   /** Create an argument from a pair of (ArgumentKey, ArgumentValue) */
@@ -254,6 +343,21 @@ object Qry {
   
   /** Create a File from a String filename */
   implicit def string2file(filename:String):File = new File(filename)
+  
+  /** Create a List of Strings from a [preferably] comma separated string */
+  implicit def string2List(str:String):List[String] = {
+    if (str.charAt(0) == '[' && str.charAt(str.length - 1) == ']') {
+      str.substring(1, str.length - 1).split(",").toList
+    } else if (str.charAt(0) == '(' && str.charAt(str.length - 1) == ')') {
+      str.substring(1, str.length - 1).split(",").toList
+    } else if (str.contains(",")) {
+      str.split(",").toList
+    } else if (str.contains(" ")) {
+      str.split(" ").toList
+    } else {
+      str.split(",").toList
+    }
+  }
   
   //
   // Queryable Command Line
@@ -297,3 +401,4 @@ object Plugins {
     }
   }
 }
+

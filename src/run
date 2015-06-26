@@ -1,0 +1,41 @@
+#!/bin/bash
+#
+
+CURRENT_DIR=`pwd`
+
+if [ -e "$CURRENT_DIR/run" ]; then
+  if [ -x "$CURRENT_DIR/run" ]; then
+    ./run
+  else
+    echo "./run does not seem to be a valid runnable file?"
+    exit 1
+  fi
+else
+  echo "No run file found! Please specify an action"
+  echo ""
+  echo " * [x] (default) Exit without doing anything."
+  echo "   [v] Create a verbose sample run file, with lots of documentation"
+  echo "   [c] Create a sample run file, with fewer comments"
+  echo "   [m] Create a minimal run file"
+  echo ""
+  echo -n "> "
+  read action
+
+  if [ "$action" == "v" ]; then
+    cp /u/nlp/packages/qry/lib/run.verbose "$CURRENT_DIR/run"
+    echo "Copied 'run.verbose' to 'run'"
+    echo "(execute `basename $0` again to run it)"
+  elif [ "$action" == "c" ]; then
+    cp /u/nlp/packages/qry/lib/run.sample "$CURRENT_DIR/run"
+    echo "Copied 'run.sample' to 'run'"
+    echo "(execute `basename $0` again to run it)"
+  elif [ "$action" == "m" ]; then
+    cp /u/nlp/packages/qry/lib/run.minimal "$CURRENT_DIR/run"
+    echo "Copied 'run.minimal' to run"
+    echo "(execute `basename $0` again to run it)"
+  else
+    echo "Exiting"
+    exit 0
+  fi
+  echo ""
+fi

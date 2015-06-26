@@ -5,40 +5,95 @@ import java.io._
 
 object PBS {
   /** The name of the PBS job */
-  var name:String = "(no name)"
+  var name:String = ""
   /** The queue to put the PBS job on (default Queue.VERYLONG) */
-  var queue:String = Queue.VERYLONG
+  var queue:String = Queue.NLP
   /** The priority to rub PBS job on (default Priority.NORMAL) */
   var priority:String = Priority.NORMAL
   /** The memory to allocate for the job, if it's not autodetected (default 2gb)*/
   var memory:String = "2gb"
   /** The cores to allocate for the job (default 1) */
   var cores:Int = 1
+  /** The cores to allocate for the job (default 1) */
+  var hosts:List[String] = List[String]()
+  
+  /** Scrape just the memory from the bash command*/
+  private def detectMemory(bashCmd:String):String = {
+    val MEMORY_REGEX = """.*\s--?X?mx([0-9]+..)(\s|\\|\n).*""".r
+    bashCmd match {
+      case MEMORY_REGEX(x, separator) => x
+      case _ => memory
+    }
+  }
 
   /** Create the resources string for the qsub command */
-  private def resources(bashCmd:String):String = {
-    val MEMORY_REGEX = """.*\s--?X?mx([0-9]+..)\s.*""".r
-    val mem:String = normalizeMemory( bashCmd match {
-        case MEMORY_REGEX(x) => x
-        case _ => memory
-      })
-    "mem=" + mem + ",ncpus=" + cores + ",nodes=1"
+  private def resources(bashCmd:String):List[String] = {
+    List[String](
+      "-l", "mem=" + detectMemory(bashCmd),
+      "-l", "nodes=1:" + "ppn=" + cores)
+  }
+
+  /** Copy over only specific environment variables */
+  private def mkEnv(bashCmd:String):String = {
+    def clean(s:String):String = s.replace(""""""", """\"""" )
+    ( sys.env.filter{ case (key, value) => 
+         key.toLowerCase != "krb5ccname"  &&
+         key.toLowerCase != "ls_colors"  &&
+         key.toLowerCase != "lscolors"  &&
+         !key.toLowerCase.startsWith("ssh_") &&
+         !value.contains(" ")  // TODO(gabor) prohibiting vars with spaces is a bit awkward
+        } +
+      ("PBS_MEMORY" -> detectMemory(bashCmd)) )
+          .map{ case (key, value) => clean(key) + "=\"" + clean(value) + "\"" }
+          .mkString(",")
   }
 
   def run(bashCmd:String, execDir:Option[String]):Option[Int] = {
     // Wait for free machine
     waitOnFreeMachine
+    for (dir <- execDir) { while (!new File(dir).exists) { Thread.sleep(1000); } }
     // Create script file
     val pbsScript:File = execDir.map{ (dir:String) => new File(dir + "/_pbs.bash") }
         .getOrElse( File.createTempFile("pbs", ".bash") )
     if (!pbsScript.exists) {
       pbsScript.createNewFile
     }
-    val logDir:String = execDir.getOrElse( File.createTempFile("pbs_log", ".dir").getPath )
+    val logDir:String = execDir.getOrElse( {
+      val tmpDir = File.createTempFile("pbs_log", ".dir")
+      tmpDir.delete; tmpDir.mkdir; tmpDir.getPath
+    } )
+    // Create qsub command
+    def job(passVariables:Boolean) = List[String]( 
+        // the program (qsub)
+        "qsub",
+        // working directory
+        "-d", System.getProperty("user.dir")) :::
+        // resources
+        resources(bashCmd) ::: List[String](
+        // job name
+        "-N", name.replaceAll(" ","_") + execDir.map( (path:String) => "@" + path.substring(path.lastIndexOf("/") + 1) ).getOrElse(""),
+        // job queue
+        "-q", queue
+        // pass along environment variables
+        ) ::: { if (passVariables) List[String]("-v", mkEnv(bashCmd)) else Nil } ::: List[String](
+        // Not rerunnable
+        "-r", "n"
+        // Hosts
+        ) ::: { if (hosts.isEmpty()) Nil else List[String]("-W", "x=\"HOSTLIST=" + hosts.mkString(",").replace(" ","") + "\"") } ::: List[String](
+        // stderr and stdout
+        "-o", logDir + "/_stdout_pbs.log",
+        "-e", logDir + "/_stderr_pbs.log",
+        // command
+        pbsScript.getPath
+      )
     // Write script file
     val writer = new PrintWriter(pbsScript)
     try {
       writer.write("#!/bin/bash\n")
+      writer.write("#\n")
+      writer.write("# qsub command (without passing environment variables):\n")
+      writer.write("# " + job(false).map( x => x.toString).mkString(" ") + "\n")
+      writer.write("#\n")
       writer.write("WD=" + System.getProperty("user.dir") + "\n")
       writer.write("LOG_DIR=" + logDir + "\n")
       writer.write(header)
@@ -49,30 +104,8 @@ object PBS {
     } finally {
       writer.close
     }
-    // Create qsub command
-    val job = List[String]( "qsub",
-        // working directory
-        "-d", System.getProperty("user.dir"),
-        // resources
-        "-l", resources(bashCmd),
-        // job name
-        "-N", name + execDir.map( (path:String) => "@" + path.substring(math.max(0, path.lastIndexOf("/")), path.length) ).getOrElse(""),
-        // job queue
-        "-q", queue,
-        // set the QoS
-        "-W",
-        // pass along environment variables
-        "-V",
-        // Not rerunnable
-        "-r", "n",
-        // stderr and stdout
-        "-o", logDir + "/_stdout_pbs.log",
-        "-e", logDir + "/_stderr_pbs.log",
-        // command
-        pbsScript.getPath
-      )
     // Run and return
-    Some(job.!)
+    Some(job(true).!)
     Thread.sleep(5000)
   }
 
@@ -120,32 +153,11 @@ object PBS {
 
   /** The header of the script to run the PBS job with. The command goes between the header and footer. */
   private val header = """
-set -x
+# set -x
 
-USERNAME=`whoami`
-HOSTNAME=`hostname | sed -r -e 's/\.[^\.]+\.(edu|com)//i'`
-JOBID=`echo $PBS_JOBID | sed -r -e 's/\..*\.(edu|com)//'`
-
-# setup of a bunch of environment variables that PBS jobs can use
-export TMP=/tmp/${USERNAME}/${JOBID}-pbs/
-export TEMP=$TMP
-export TEMPDIR=$TMP
-export TMPDIR=$TMP
-mkdir -p $TMP
-
-# don't source it if it (or similar things) have already been sourced
-if [ -z "$JAVA_HOME" ]; then
-  if [ -e /u/nlp/bin/setup.bash ]; then
-    source /u/nlp/bin/setup.bash
-  fi
-fi
-
-if [ -e $HOME/.profile ]; then
-  source $HOME/.profile
-fi
-if [ -e $HOME/.bashrc ]; then
-  source $HOME/.bashrc
-fi
+export USERNAME=`whoami`
+export HOSTNAME=`hostname | sed -r -e 's/\.[^\.]+\.(edu|com)//i'`
+export JOBID=`echo $PBS_JOBID | sed -r -e 's/\..*\.(edu|com)//'`
 
 # due to NFS sync issues, our log directory might not exist yet.
 # we'll sleep a little bit in hopes that it will appear soon
@@ -154,11 +166,26 @@ mkdir -p $LOG_DIR
 while [ $sleep_counter -lt 20 ] && [ ! -d "$LOG_DIR" ]; do
   echo "waiting on log directory..."
   let sleep_counter=sleep_counter+1
-  sleep 1
+  sleep $sleep_counter
 done
 
 cd "$WD"
-echo `date +"%a %b %d %k:%M:%S %Y"`: Started on $HOSTNAME. >> "$LOG_DIR/_qsub.log"
+echo `date +"%a %b %d %k:%M:%S %Y"`: Started on ${HOSTNAME} in ${PBS_O_QUEUE} queue. >> "$LOG_DIR/_pbs.log"
+echo "" >> "$LOG_DIR/_pbs.log"
+echo "Working directory: $WD" >> "$LOG_DIR/_pbs.log"
+echo "Current directory: `pwd`" >> "$LOG_DIR/_pbs.log"
+echo "JAVA_HOME:         $JAVA_HOME" >> "$LOG_DIR/_pbs.log"
+echo "JAVANLP_HOME:      $JAVANLP_HOME" >> "$LOG_DIR/_pbs.log"
+echo "LD_LIBRARY_PATH:   $LD_LIBRARY_PATH" >> "$LOG_DIR/_pbs.log"
+echo "" >> "$LOG_DIR/_pbs.log"
+echo "Job id:            $PBS_JOBID" >> "$LOG_DIR/_pbs.log"
+echo "Job name:          $PBS_JOBNAME" >> "$LOG_DIR/_pbs.log"
+echo "Job num cores:     $PBS_NUM_PPN" >> "$LOG_DIR/_pbs.log"
+echo "Job memory:        $PBS_MEMORY" >> "$LOG_DIR/_pbs.log"
+echo "" >> "$LOG_DIR/_pbs.log"
+echo "$ env | grep PBS" >> "$LOG_DIR/_pbs.log"
+echo "`env | grep PBS`" >> "$LOG_DIR/_pbs.log"
+echo "" >> "$LOG_DIR/_pbs.log"
 
 # actually run the command
 ( """
@@ -166,11 +193,8 @@ echo `date +"%a %b %d %k:%M:%S %Y"`: Started on $HOSTNAME. >> "$LOG_DIR/_qsub.lo
   /** The footer of the script to run the PBS job with. The command goes between the header and footer. */
   private val footer = """ > "$LOG_DIR/_stdout.log" 2> "$LOG_DIR/_stderr.log" )
 
-echo `date +"%a %b %d %k:%M:%S %Y"`: Completed on $HOSTNAME >> '$LOG_DIR/_qsub.log'
-
-# cleanup the temp files we made -- this should really be done in the epilog
-# if we ever figure out how to get PBS to run them
-rm -rf $TMP
+echo `date +"%a %b %d %k:%M:%S %Y"`: Completed on ${HOSTNAME} >> "$LOG_DIR/_pbs.log"
+echo "" >> "$LOG_DIR/_pbs.log"
 """
 }
 
@@ -182,7 +206,8 @@ object Priority {
 }
 
 object Queue {
-  val SHORT = "short"
-  val LONG = "long"
-  val VERYLONG = "verylong"
+  val SCAIL = "scail"
+  val NLP = "nlp"
+  val JAG = "jag"
+  val JOHN = "john"
 }

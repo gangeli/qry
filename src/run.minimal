@@ -1,0 +1,21 @@
+#!/bin/bash
+exec /u/nlp/packages/scala/scala-2.11.0/bin/scala -cp /u/nlp/packages/qry/lib/qry.jar:$JAVANLP_HOME/projects/core/classes:$JAVANLP_HOME/projects/more/classes:$JAVANLP_HOME/projects/more/lib/typesafe-config-1.0.0.jar:$JAVANLP_HOME/projects/research/classes "$0" "$@"
+!#
+import Qry._  // Qry Core
+import Stanford._  // Utilities for Stanford
+
+//using("/path/to/run/directory")
+//using("pbs")
+//using(getConfigOr(args, "/path/to/typesafe/config.conf"))  // tries to guess the config path from the command line arguments too
+
+/* Runs:
+ *   ping -c 1 google.com
+ *   ping -c 5 google.com
+ *   ping -c 1 yahoo.com
+ * To run all 4 options, use "&" instead of "|"
+ */
+//parallel(<# cores>)
+submit("ping"
+  -("c", "1" | "5")
+  ->("google.com" | "yahoo.com")
+)

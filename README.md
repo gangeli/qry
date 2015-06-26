@@ -145,10 +145,8 @@ The files saved in this directory are:
    This includes: (1) timing information; (2) environment information
    (host, folder, git revision, etc); and (3) key results scraped from the
    output stream (more later).
--  `_cmd.ser`: A serialized version of the process to be run. Note that this is
-   buggy still.
--  `_cmd.txt`: A text file with the list of arguments to pass to the program;
-   each element of the list should be surrounded by spaces.
+-  `_rerun.sh`: A bash script which can be used to re-run this job, in a newly
+   created nested rerun folder.
 
 As mentioned above, one of the key elements in `_qry.json` in this folder are
 results scraped from the running program.
@@ -164,11 +162,11 @@ Lastly, note that you can retrieve this run directory with the `touch` function.
 For example, the following command will create a new file in the execution
 directory (confusingly, using the Unix touch program):
      
-     using("/path/to/dir/")
+     using("/path/to/rundir/")
      submit("touch" ->touch("filename_to_create.txt"))
      
      >> -- 1 job submitted
-     >> // touch /path/to/dir/filename_to_create.txt
+     >> // touch /path/to/rundir/filename_to_create.txt
 
 ### Properties File
 Often, a configuration already exists in a properties file and it is useful
@@ -198,14 +196,14 @@ Jobs can be run over PBS by specifying the option:
 
     using("pbs")
 
-Options for the PBS job (arguments to qsub) can be epscified by setting one
+Options for the PBS job (arguments to qsub) can be specified by setting one
 or more of:
 
     PBS.name:String
     PBS.queue:String
     PBS.priority:String
-    pbs.memory:String
-    pbs.cores:Int
+    PBS.memory:String
+    PBS.cores:Int
 
 Note that memory is autdetected from java processes; also, the Priority and Queue
 objects have some common preset priority and queue values.
@@ -248,6 +246,14 @@ follows:
      
      parallel(number_of_cores) submit("hello")
 
+When used in conjunction with PBS integration, the number of cores denote the
+maximum number of PBS jobs to run at any given time.
+For example, you could start 100 PBS jobs, but ensure that rather than
+getting loaded at once only 10 are on the queue at any time, with:
+
+     using("pbs")
+     parallel(10) submit( ('echo ->"This is a PBS job!") * 100 )
+
 Advanced Features
 -------------
 Note that these are more likely to be bug-prone; but, also more likely to
@@ -282,6 +288,37 @@ For example, the example from lazy functions could be simplified to:
      >> 1
      >> 2
      >> 3
+
+### Power Sets
+In certain cases, you may want to set a parameter to the power set of a given
+set of options.
+For example, if you're doing feature selection, you may want to run a classifier
+with every combination of feature templates.
+A utility is included for this, conveniently named `powerset`:
+
+    submit("echo" ->powerset("foo", "bar", "baz"))
+    
+    >> -- 7 jobs submitted
+
+Note that the empty set is not included; and, that if your power set is larger
+than 1000 elements, the program will check to confirm that this is what was intended.
+Each set is denoted by a comma-separated list; e.g., "foo,bar,baz".
+
+Also note that by default, the powerset function has the semantics of
+joining all the arguments with `&`.
+For joining arguments with `|`, see `powersetOr` (for convenience, there
+is also a function `powersetAnd`).
+
+### Using other options flags
+There is a utility function `dash()` that returns the dash character used to
+specify options (`-` by default).
+This can also be changed with, for example,
+
+```scala
+dash("--")
+```
+
+to prepend each option with the `--` character (well, String).
 
 Query Results
 -------------

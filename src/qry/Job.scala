@@ -96,9 +96,9 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
                   case Some(sha) =>
                     "# Manage Git\n" +
                     """if [ `git rev-parse --verify HEAD` != """ +
-                       "\"" + gitRevision + "\"" + """ ]; then """ +
+                       "\"" + sha + "\"" + """ ]; then """ +
                        """echo "WARNING: Git revision has changed from """ +
-                       gitRevision + "\"" + """; fi""" + "\n"
+                       sha + "\"" + """; fi""" + "\n"
                   case None => ""
                 }} +
                 "mkdir -p " + runDir + "/_rerun" +
@@ -111,9 +111,9 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
           status = if (Qry.usingPBS) {
             PBS.run(bashCmd(false), execDir)
           } else {
+            import ResultRegex._
             Some(proc !< ProcessLogger(
               {(out:String) => 
-                import ResultRegex._
                 out match {
                   case ExplicitResult(key, value) => results(key.trim) = value.trim
                   case ImplicitResultNumeric(key, value) => results(key.trim) = value.trim
@@ -121,7 +121,14 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
                 }
                 println(out)
               },
-              { (err:String) => System.err.println(err) }
+              { (err:String) =>
+                err match {
+                  case ExplicitResult(key, value) => results(key.trim) = value.trim
+                  case ImplicitResultNumeric(key, value) => results(key.trim) = value.trim
+                  case _ => 
+                }
+                  System.err.println(err)
+              }
             ))
           }
           // Write info
@@ -153,11 +160,10 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
               }
               b.append("\n")
               // (results)
-              results.foreach{ case (key:String, value:String) =>
-                b.append("  ").append(json(key)).append(": ")
-                 .append(json(value)).append(",\n")
-              }
-              b.append("}")
+              results.map{ case (key:String, value:String) =>
+                "  " + json(key) + ": " + json(value) 
+              }.toArray.mkString(",\n")
+              b.append("\n}")
               write(runDir + "/_qry.json", b.toString)
             case None => // do nothing
           }

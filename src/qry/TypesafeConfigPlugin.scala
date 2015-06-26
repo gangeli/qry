@@ -5,7 +5,7 @@ import com.typesafe.config._
 
 object TypesafeConfigPlugin {
   def appendProperties(staticProperties:Properties, specFile:File):Unit = {
-    for (entry <- ConfigFactory.parseFile(specFile).entrySet) {
+    for (entry <- ConfigFactory.parseFile(specFile).resolve.entrySet) {
       staticProperties.put(entry.getKey, entry.getValue.unwrapped)
     }
   }
