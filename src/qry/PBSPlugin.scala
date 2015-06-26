@@ -73,6 +73,7 @@ object PBS {
       )
     // Run and return
     Some(job.!)
+    Thread.sleep(5000)
   }
 
   /**
