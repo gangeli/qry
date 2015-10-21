@@ -143,6 +143,7 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
               b.append(json(new Date(System.currentTimeMillis).toString)).append(",\n")
               b.append("  \"elapsed_time\": \"")
               formatTimeDifference(System.currentTimeMillis - start, b).append("\",\n")
+              b.append("  \"exit_status\": " + status.getOrElse(0) + ",\n")
               b.append("\n")
               // (run info)
               b.append("  \"host\":         ")
