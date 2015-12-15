@@ -7,10 +7,10 @@ It enables you to run a number of instances of a program with different command-
 
 Key features include:
 
--  Simple, intuitive syntax; no external dependencies (see [Syntax](#Basic Syntax)).
--  Statistics from runs are stored in a unique directory (see [Managing Runs](#Managing Runs)).
--  Runs can be re-run via a `_rerun.sh` script (see [Managing Runs](#Managing Runs)).
--  Process level parallelism of runs (see [Parallelism](#Parallelism)).
+-  Simple, intuitive syntax; no external dependencies (see [Syntax](#basic-syntax)).
+-  Statistics from runs are stored in a unique directory (see [Managing Runs](#managing-runs)).
+-  Runs can be re-run via a `_rerun.sh` script (see [Managing Runs](#managing-runs)).
+-  Process level parallelism of runs (see [Parallelism](#parallelism)).
 -  Can incorporate arbitrary Scala code.
 
 Download the latest release ([`qry.jar`](https://github.com/gangeli/qry/releases/download/1.0.1/qry.jar)) from the [releases page](https://github.com/gangeli/qry/releases).
