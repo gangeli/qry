@@ -135,12 +135,11 @@ to handle a wide range of different tasks.
 Examples are documented in the following sections:
 
 ### Managing Runs
-A directory can be specified for saving key characteristics of every job started
-with a script by specifying:
+One of the core features of experiment management is being able to save and manage the results of experiments. You can specify a directory to save these results in by specifying:
 
      using("/path/to/directory/")
 
-If the directory does not exist, and the specification ends with a `/`, then it
+This will create a new folder, indexed from 0 and incrementing with each new run, in which key statistics of the run will be saved. If the directory does not exist, and the directory name ends with a `/`, then it
 will be created.
 
 The files saved in this directory are:
@@ -149,7 +148,8 @@ The files saved in this directory are:
    (host, folder, git revision, etc); and (3) key results scraped from the
    output stream (more later).
 -  `_rerun.sh`: A bash script which can be used to re-run this job, in a newly
-   created nested rerun folder.
+   created nested rerun folder. This also serves as documentation for the
+   command line arguments passed to the program.
 
 As mentioned above, one of the key elements in `_qry.json` in this folder are
 results scraped from the running program.
@@ -162,6 +162,8 @@ Informally, these are lines of the form:
 `result: key = value` or `result: key: value` or `key: value_as_number`; etc.
 
 Lastly, note that you can retrieve this run directory with the `touch` function.
+This is useful for, e.g., saving models or log files output by the program on the
+basis of a command line argument.
 For example, the following command will create a new file in the execution
 directory (confusingly, using the Unix touch program):
      
@@ -170,6 +172,18 @@ directory (confusingly, using the Unix touch program):
      
      >> -- 1 job submitted
      >> // touch /path/to/rundir/filename_to_create.txt
+
+As a more motivating use case, we can use this to save a model from a hypothetical
+program run on two different settings of a parameter.
+This will create two execution directories, one for each invocation of the program,
+and save the associated model to each directory:
+
+     using("/path/to/rundir/")
+     submit("my_program" -("param", "1" & "2") -("saved_model", touch("my_model_name.ser")))
+     
+     >> -- 2 jobs submitted
+     >> // my_program -param 1 -saved_model /path/to/rundir/0/my_model_name.ser
+     >> // my_program -param 2 -saved_model /path/to/rundir/1/my_model_name.ser
 
 ### Properties File
 Often, a configuration already exists in a properties file and it is useful
