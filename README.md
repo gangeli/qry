@@ -12,6 +12,8 @@ Key features include:
 -  Process level parallelism
 -  Arbitrary Scala code can be run either once, or for each run.
 
+Download the latest release ([`qry.jar`](https://github.com/gangeli/qry/releases/download/1.0.1/qry.jar)) from the [releases page](https://github.com/gangeli/qry/releases).
+
 Basic Syntax
 -------------
 
