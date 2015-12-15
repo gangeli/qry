@@ -1,16 +1,17 @@
 Qry: A lightweight experiment management system
 ===
 
-Qry aims to simplify the task of starting a large number of experiments; for example,
-when exploring a parameter space.
-In addition, it can store basic information about the run, including runtime, Git revision, and key results.
+Qry is a domain specific language to simplify the task of starting a large number of experiments; for example,
+when cross-validating hyperparameters in machine learning applications.
+It enables you to run a number of instances of a program with different command-line arguments, storing the result of each in an "execution directory" which saves key information about the run. 
 
 Key features include:
 
--  Simple, intuitive syntax; no external dependencies
--  Managing statistics from runs
--  Process level parallelism
--  Arbitrary Scala code can be run either once, or for each run.
+-  Simple, intuitive syntax; no external dependencies (see [Syntax](#Basic Syntax)).
+-  Statistics from runs are stored in a unique directory (see [Managing Runs](#Managing Runs)).
+-  Runs can be re-run via a `_rerun.sh` script (see [Managing Runs](#Managing Runs)).
+-  Process level parallelism of runs (see [Parallelism](#Parallelism)).
+-  Can incorporate arbitrary Scala code.
 
 Download the latest release ([`qry.jar`](https://github.com/gangeli/qry/releases/download/1.0.1/qry.jar)) from the [releases page](https://github.com/gangeli/qry/releases).
 
