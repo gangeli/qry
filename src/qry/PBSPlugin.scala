@@ -106,7 +106,6 @@ object PBS {
     }
     // Run and return
     Some(job(true).!)
-    Thread.sleep(5000)
   }
 
   /**

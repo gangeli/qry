@@ -77,11 +77,15 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
           // Save configuration
           // (git revision)
           var gitRevision:Option[String] = None
-          if ("""git rev-parse --verify HEAD""" ! ProcessLogger(
-                  out => gitRevision = Some(out),
-                  err => ()
-                ) == 0 && !gitRevision.isDefined) {
-            Qry.err("Git command did not output revision SHA")
+          try {
+            if ("""git rev-parse --verify HEAD""" ! ProcessLogger(
+                    out => gitRevision = Some(out),
+                    err => ()
+                  ) == 0 && !gitRevision.isDefined) {
+              Qry.err("Git command did not output revision SHA")
+            }
+          } catch {
+            case (e:Throwable) => { e.printStackTrace; Qry.err("Exception in getting Git revision") }
           }
           // (bash file)
           execDir match {
@@ -109,7 +113,9 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
           }
           // Run the program
           status = if (Qry.usingPBS) {
-            PBS.run(bashCmd(false), execDir)
+            PBS.run(bashCmd(false), execDir)    // Run on PBS
+          } else if (Qry.usingSlurm) {
+            Slurm.run(bashCmd(false), execDir)  // Run on Slurm
           } else {
             import ResultRegex._
             Some(proc !< ProcessLogger(

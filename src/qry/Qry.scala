@@ -25,7 +25,7 @@ object Qry {
   /** Set the size of the thread (process) pool. */
   def parallel(threadCount:Int
       ):{def submit(t:Task); def submit(t:Iterator[Task])} = {
-    executor = Executors.newFixedThreadPool(if (usingPBS) 1 else  threadCount)
+    executor = Executors.newFixedThreadPool(if (usingPBS || usingSlurm) 1 else  threadCount)
     threadPoolSize = threadCount
     new {
       def submit(t:Task):Unit = Qry.submit(t)
@@ -49,7 +49,11 @@ object Qry {
   /** Properties to prepend to every run */
   val staticProperties:Properties = new Properties
 
+  /** If true, we are using PBS to schedule our jobs. */
   var usingPBS = false
+  
+  /** If true, we are using Slurm to schedule our jobs. */
+  var usingSlurm = false
 
   //
   // Using keyword
@@ -101,13 +105,24 @@ object Qry {
     return false
   }
 
-  def pbs(spec:String, force:Boolean = true):Boolean = {
+  def scheduler(spec:String, force:Boolean = true):Boolean = {
     if (spec.equalsIgnoreCase("pbs") || spec.equalsIgnoreCase("qsub") ||
         spec.equalsIgnoreCase("nlpsub")) {
-      usingPBS = true
+      usingPBS   = true
+      usingSlurm = false
       true
-    } else if (spec.equalsIgnoreCase("local") || spec.equalsIgnoreCase("nopbs")) {
-      usingPBS = false
+    } else if (spec.equalsIgnoreCase("slurm") || spec.equalsIgnoreCase("sbatch") ||
+        spec.equalsIgnoreCase("srun")) {
+      usingPBS   = false
+      usingSlurm = true
+      true
+    } else if (spec.equalsIgnoreCase("local") || spec.equalsIgnoreCase("nopbs") || spec.equalsIgnoreCase("noslurm")) {
+      usingPBS   = false
+      usingSlurm = false
+      true
+    } else if (force) {
+      println("WARNING: unknown spec " + spec + "; defaulting to Slurm")
+      usingSlurm = true
       true
     } else {
       false
@@ -118,7 +133,7 @@ object Qry {
     val success = redis(spec, false) ||
                   remote(spec, false) ||
                   input(spec, false) ||
-                  pbs(spec, false) ||
+                  scheduler(spec, false) ||
                   execdir(spec, false)
     if (!success) {
       var user = System.getenv("USER")
@@ -147,13 +162,18 @@ object Qry {
   def submit(task:Task,
              whenDone:()=>Unit = { () => },
              shutdownAtEnd:Boolean = true):Unit = {
-    beginLock.acquire
-    val jobs:List[Job] = task.jobs
-    jobs.foreach{ _.queue(false, whenDone) }
-    println("-- " + jobs.length + " job" + {if(jobs.length > 1) "s" else ""} +
-      " submitted")
-    beginLock.release
-    if (shutdownAtEnd) { shutdown }
+    beginLock.lock
+    try {
+      val jobs:List[Job] = task.jobs
+      jobs.foreach{ _.queue(false, whenDone) }
+      println("-- " + jobs.length + " job" + {if(jobs.length > 1) "s" else ""} +
+        " submitted")
+    } finally {
+      beginLock.unlock
+    }
+    if (shutdownAtEnd) { 
+      shutdown 
+    }
   }
   
   /** Submit a task a number of times for running.
@@ -296,7 +316,7 @@ object Qry {
     System.exit(1)
   }
   /** A lock to help with pretty printing */
-  val beginLock = new scala.concurrent.Lock
+  val beginLock = new java.util.concurrent.locks.ReentrantLock
 
   def guessArgumentValue(arg:Any):ArgumentValue = arg match {
     case (str:String) => ArgumentValue(str)
@@ -356,37 +376,6 @@ object Qry {
       str.split(" ").toList
     } else {
       str.split(",").toList
-    }
-  }
-  
-  //
-  // Queryable Command Line
-  //
-  def main(args:Array[String]):Unit = {
-    //(imports)
-    import scala.tools.nsc.interpreter.{IMain,JLineReader,JLineCompletion}
-    import scala.tools.nsc.Settings
-    // (args)
-    if (args.length > 0) {
-      args.foreach{ using(_) }
-    }
-    //(create interpreter)
-    val settings = new Settings
-    settings.usejavacp.value = true
-    val interpreter:IMain = new IMain(settings)
-    val reader:JLineReader = new JLineReader(new JLineCompletion(interpreter))
-    //(initial commands)
-    interpreter.interpret("import Qry._")
-    interpreter.interpret("import QrySQL._")
-    //(REPL)
-    var cond = true
-    while(cond){
-      try {
-        val str = reader.readLine("qry> ")
-        interpreter.interpret(str)
-      } catch {
-        case (e:Exception) => e.printStackTrace
-      }
     }
   }
 }

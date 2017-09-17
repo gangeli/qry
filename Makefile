@@ -55,15 +55,9 @@ ${DIST}/${NAME}.jar: ${DIST}/qry_unbundled.jar ${SRC}/Manifest
 	rm -r ${TMP}/scala-reflect/META-INF
 	jar uf ${DIST}/qry.jar -C ${TMP}/scala-reflect/ .
 	rm -rf ${TMP}/scala-reflect
-  #((jline))
-	rm -rf ${TMP}/jline
-	unzip ${SCALA_HOME}/lib/jline-2.11.jar -d ${TMP}/jline > /dev/null
-	rm -r ${TMP}/jline/META-INF
-	jar uf ${DIST}/qry.jar -C ${TMP}/jline/ .
-	rm -rf ${TMP}/jline
   #((typesafe))
 	rm -rf ${TMP}/typesafe
-	unzip ${SCALA_HOME}/lib/config-1.2.0.jar -d ${TMP}/typesafe > /dev/null
+	unzip ${SCALA_HOME}/lib/config-*.jar -d ${TMP}/typesafe > /dev/null
 	rm -r ${TMP}/typesafe/META-INF
 	jar uf ${DIST}/qry.jar -C ${TMP}/typesafe/ .
 	rm -rf ${TMP}/typesafe

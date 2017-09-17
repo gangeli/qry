@@ -283,7 +283,7 @@ case class Task(program:List[String], argsRev:List[Argument],
 }
 
 object Task {
-  private val runDirLock = new scala.concurrent.Lock
+  private val runDirLock = new java.util.concurrent.locks.ReentrantLock
   private val RUN_FILE = """^.*/([0-9]+)$""".r
   /**
    *  Ensure that the run directory is created, and return its path.
@@ -292,18 +292,21 @@ object Task {
   def ensureRunDir:Option[File] = {
     try {
       execRoot.map { (root:String) =>
-        runDirLock.acquire
-        val runs = new File(root).listFiles
-          .map { _.getAbsolutePath }
-          .map { _ match { case RUN_FILE(run) => Some(run.toInt)
-                           case _ => None } }
-          .filter( _.isDefined ).map( _.get )
-          .sortWith( _ > _ )
-        val lastRun = if (runs.isEmpty) -1 else runs.head.toInt
-        runDirLock.release
-        val runDir = new File(root + "/" + (lastRun + 1))
-        runDir.mkdir
-        runDir
+        runDirLock.lock
+        try {
+          val runs = new File(root).listFiles
+            .map { _.getAbsolutePath }
+            .map { _ match { case RUN_FILE(run) => Some(run.toInt)
+                             case _ => None } }
+            .filter( _.isDefined ).map( _.get )
+            .sortWith( _ > _ )
+          val lastRun = if (runs.isEmpty) -1 else runs.head.toInt
+          val runDir = new File(root + "/" + (lastRun + 1))
+          runDir.mkdir
+          runDir
+        } finally {
+          runDirLock.unlock
+        }
       }
     } catch {
       case (e:Exception) => err(e.getMessage); None
