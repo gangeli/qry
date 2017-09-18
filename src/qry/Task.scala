@@ -317,20 +317,20 @@ object Task {
     (rerun:Boolean) => {
       val sh = new StringBuilder
       // (program name)
-      sh.append("'").append(args.head).append("'\\\n\t")
+      sh.append("'").append(args.head).append("' \\\n\t")
       // (arguments)
       var lastDash = false
       args.tail.foreach{ (uncleanArg:String) =>
-        val arg = uncleanArg.replaceAll("'", "\\'")
+        val arg = uncleanArg.replaceAll("'", " \\'")
                             .replaceAll("ℵexecdir_thunkℵ",
                                         runDir.getOrElse("/tmp/qry") +
                                           {if (rerun) "/_rerun" else ""})
         if (arg.startsWith(Qry.dash_value)) {
-          if (lastDash) sh.append("\\\n\t")
+          if (lastDash) sh.append(" \\\n\t")
           sh.append("'").append(arg).append("' ")
           lastDash = true
         } else {
-          sh.append("'").append(arg).append("'\\\n\t")
+          sh.append("'").append(arg).append("' \\\n\t")
           lastDash = false
         }
       }

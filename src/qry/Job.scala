@@ -112,10 +112,10 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
             case None =>
           }
           // Run the program
-          status = if (Qry.usingPBS) {
-            PBS.run(bashCmd(false), execDir)    // Run on PBS
-          } else if (Qry.usingSlurm) {
-            Slurm.run(bashCmd(false), execDir)  // Run on Slurm
+          status = if (Qry.usingPBS) {    // Run on PBS
+            PBS.run(bashCmd(false), execDir)
+          } else if (Qry.usingSlurm) {    // Run on Slurm
+            Slurm.run(bashCmd(false), execDir)
           } else {
             import ResultRegex._
             Some(proc !< ProcessLogger(
@@ -192,7 +192,8 @@ case class Job(proc:ProcessBuilder, var isQueued:Boolean,
   */
   def queue:Unit = queue(false, ()=>{})
 
-  override def toString:String = proc.toString
+  /** {@inheritDoc} */
+  override def toString:String = bashCmd(false).toString
 
   // Constructor
   if (isQueued) queue(true, ()=>{})  // Optionally start running right away

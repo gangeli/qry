@@ -240,7 +240,11 @@ object Qry {
     if (procs != 1)
       println("--   " + procs + " processes at a time")
     if (dash != "-")
-      println("--   '" + dash + "' as as the argument prefix")
+      println("--   Using '" + dash + "' as as the argument prefix")
+    if (usingPBS)
+      println("--   Using PBS")
+    if (usingSlurm)
+      println("--   Using Slurm")
   }
 
 
