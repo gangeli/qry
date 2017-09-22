@@ -187,9 +187,14 @@ export HOSTNAME=`hostname | sed -r -e 's/\.[^\.]+\.(edu|com|ai|io)//i'`
 export JOBID=`echo $SLURM_JOBID | sed -r -e 's/\..*\.(edu|com|ai|io)//'`
 
 # Kinit
-if [[ -e "/etc/krb_keys/${USERNAME}.keytab" ]]; then
+if klist -s; then
+  # we have a valid Kerberos ticket -- but refresh it anyways
+  kinit -R
+elif [[ -e "/etc/${USERNAME}.keytab" ]]; then
+  # we don't have a valid Kerberos ticket, but we can get one
   kinit -k -t "/etc/${USERNAME}.keytab" "${USERNAME}"
 fi
+# At this point, Kerberos should be authenticated.
 
 # due to NFS sync issues, our log directory might not exist yet.
 # we'll sleep a little bit in hopes that it will appear soon
